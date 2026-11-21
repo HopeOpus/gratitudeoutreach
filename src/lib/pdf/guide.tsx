@@ -79,7 +79,7 @@ export function GuidesDocument({ edition, stations, training }: { edition: strin
             <Text style={{ fontSize: 11.5 }}>• Never take screenshots of people&apos;s details. Don&apos;t leave the station without syncing (Me → Sync now).</Text>
           </View>
           <Text style={{ position: "absolute", bottom: mm(12), left: mm(16), right: mm(16), fontSize: 9, color: C.n500 }}>
-            Problems? Find your Station Lead or the coordinator. Say “person”, never “case”. Warm, dignified, simple.
+            Problems? Find your Station Lead or the coordinator. Say “person”, never “case”, and use people’s names.
           </Text>
         </Page>
       ))}

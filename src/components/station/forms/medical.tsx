@@ -120,7 +120,7 @@ export function MedicalForm({ session, stations, saving, onSubmit }: FormProps) 
               <option value="">Choose…</option>
               {meds.map((m) => {
                 const left = m.remaining - usedQty(m.id);
-                return <option key={m.id} value={m.id} disabled={left <= 0}>{m.name} — {left <= 0 ? "Out of stock" : `${left} ${m.unit} left${left <= m.low_threshold ? " (low)" : ""}`}</option>;
+                return <option key={m.id} value={m.id} disabled={left <= 0}>{m.name} · {left <= 0 ? "Out of stock" : `${left} ${m.unit} left${left <= m.low_threshold ? " (low)" : ""}`}</option>;
               })}
             </Select>
           </label>

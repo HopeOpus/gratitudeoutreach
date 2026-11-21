@@ -34,7 +34,7 @@ pnpm dev                          # http://localhost:3000
 | `NEXT_PUBLIC_SUPABASE_URL` | client + server | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server | Public anon key (RLS protects all data) |
 | `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Used only in `src/app/api/**` after a role check (PIN secrets, join tokens, admin invites) |
-| `JOIN_TOKEN_SECRET` | server only | ≥ 32 random chars. Encrypts printable PIN copies. **Changing it makes stored PINs unreadable** (just rotate them). |
+| `JOIN_TOKEN_SECRET` | server only | ≥ 32 random chars. Encrypts printable PIN copies. **Changing it makes stored PINs unreadable**; rotate the PINs afterwards. |
 | `CRON_SECRET` | server only | Protects `/api/cron/retention` (Vercel cron sends it as a Bearer token) |
 | `NEXT_PUBLIC_APP_URL` | optional | Public URL used in join links/posters (defaults to the request host) |
 
@@ -68,8 +68,8 @@ pnpm icons                # regenerate PWA icons + PDF logos from public/brand
 |---|---|---|---|
 | Registration | `111111` | — | `999999` |
 | Prayer | `222222` | — | `999999` |
-| Counselling 🔒 | `333333` | `303030` | `999999` |
-| Medical 🔒 | `444444` | `404040` | `999999` |
+| Counselling | `333333` | `303030` | `999999` |
+| Medical | `444444` | `404040` | `999999` |
 | Food | `555555` | — | `999999` |
 | Clothing | `666666` | — | `999999` |
 
@@ -148,7 +148,7 @@ A Lead PIN entered at join ("I'm the Station Lead") makes that person a Station 
 
 ### Backups and data export
 - **Before the event:** on the Supabase Pro plan, daily backups are automatic. Also take a manual snapshot (*Database → Backups*) the evening before.
-- **During the event:** every phone keeps its own records until they sync, so a server outage loses nothing. Phones keep working offline, and the outbox drains when the server is back.
+- **During the event:** each phone keeps its records until they sync, so a server outage loses nothing.
 - **Straight after closing:** download every Excel export from *Reports* and the summary PDF, and store them in the church's shared drive (access limited to the leadership team). Exports never contain medical or counselling notes.
 - **Full database copy** (Super Admin, technical): `pnpm exec supabase db dump --linked -f backup-$(date +%F).sql` and `pnpm exec supabase db dump --linked --data-only -f data-$(date +%F).sql`. Treat these files as confidential: they contain everything, including confidential notes.
 - **Restore:** a Supabase point-in-time restore (*Database → Backups*), or `psql <new db url> -f backup.sql -f data.sql` into a fresh project, then `supabase db push` to confirm migrations match.
@@ -166,9 +166,9 @@ A Lead PIN entered at join ("I'm the Station Lead") makes that person a Station 
 | Large system font | text sizes use `rem`; a 200% font test runs in the a11y suite | No horizontal overflow; station loop usable |
 | Device purge + rate limit | `pnpm e2e tests/e2e/hardening.spec.ts`, `supabase/tests/04_rate_limit.sql` | Revoked phone wiped; 5 failures per device / 30 per venue IP |
 
-Under artificial bursts (hundreds of writes per second), Supabase Realtime throttles fan-out. Each phone also pulls a delta every 30 seconds, so every device converges anyway.
+Under artificial bursts (hundreds of writes per second), Supabase Realtime throttles fan-out. Each phone also pulls a delta every 30 seconds, so every device catches up regardless.
 
-**Error monitoring:** client errors are scrubbed (no names, phones, card codes or ids) and sent to `/api/client-errors`, which writes them to the Vercel logs (`"type":"client_error"`). To add Sentry later, call it from `src/lib/monitoring.ts`.
+**Error monitoring:** client errors have phone numbers, emails, card codes and ids stripped (app error messages never contain names) and are sent to `/api/client-errors`, which writes them to the Vercel logs (`"type":"client_error"`). To add Sentry later, call it from `src/lib/monitoring.ts`.
 
 ---
 
@@ -187,6 +187,6 @@ Under artificial bursts (hundreds of writes per second), Supabase Realtime throt
 | `supabase/tests/01_rls.sql` | Join + lockout, no-session/anon denial, food/medical/counselling separation, admin roles, break-glass audit |
 | `supabase/tests/02_workflows.sql` | Registration, card assignment, salvation → follow-up, urgent counselling flag, medical dispense → stock, undo/void, LWW patches, closed edition |
 | `supabase/tests/03_upsert_sync.sql` | Offline outbox upserts for every client-written table; idempotent retries |
-| `tests/unit` | Phone normalisation, card codes, summary privacy, schemas, vitals, sync retry rules |
 | `supabase/tests/04_rate_limit.sql` | Per-device and per-venue-IP PIN lockout |
+| `tests/unit` | Phone normalisation, card codes, summary privacy, schemas, vitals, sync retry rules, error scrubbing |
 | `tests/e2e` | Join, offline registration → sync with no duplicates, offline lookup + realtime on a second device, confidential visibility per role, exports, PDFs, accessibility (axe), device purge on revoke, PIN lockout |

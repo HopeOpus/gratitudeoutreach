@@ -9,7 +9,7 @@ import { StationIcon } from "@/components/station/bits";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { Badge } from "@/components/ui/misc";
+import { ConfidentialBadge } from "@/components/ui/misc";
 import { toast } from "@/components/ui/toast";
 import { errorMessage } from "@/lib/utils";
 import { isConfidentialKind, STATION_META, type StationKind } from "@/lib/stations";
@@ -88,7 +88,7 @@ export default function SetupPage({ params }: { params: Promise<{ id: string }> 
                   <div className="flex items-center gap-2"><StationIcon kind={s.kind!} size="sm" />
                     <Input defaultValue={s.name ?? ""} aria-label="Station name" className="h-10 max-w-48 text-body" disabled={closed}
                       onBlur={(e) => e.target.value.trim() && e.target.value !== s.name && void update(s.id!, { name: e.target.value.trim() })} />
-                    {isConfidentialKind(s.kind) && <Badge className="bg-confidential-bg text-confidential">🔒</Badge>}
+                    {isConfidentialKind(s.kind) && <ConfidentialBadge />}
                   </div>
                 </Td>
                 <Td><input type="checkbox" className="size-5 accent-leaf" checked={!!s.enabled} disabled={closed} aria-label={`Enable ${s.name}`} onChange={(e) => void update(s.id!, { enabled: e.target.checked })} /></Td>

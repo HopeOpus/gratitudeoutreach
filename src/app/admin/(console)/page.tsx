@@ -108,7 +108,7 @@ function Dashboard({ editionId, closed, live, name }: { editionId: string; close
             <AlertBanner key={d.session_id} tone="warning"><Smartphone className="hidden" />Device &apos;{d.name}{d.device_label ? ` · ${d.device_label}` : ""}&apos; has {d.pending_ops} unsynced for {relativeMinutes(d.oldest_pending_at ?? d.last_seen_at)}</AlertBanner>
           ))}
           {s.data_quality.card_conflicts > 0 && <AlertBanner tone="warning"><AlertTriangle className="hidden" />{s.data_quality.card_conflicts} card conflict(s) to resolve</AlertBanner>}
-          {!s.urgent_flags.length && !s.low_stock.length && !staleDevices.length && !s.data_quality.card_conflicts && <p className="text-body text-neutral-500">No alerts. All good 🙌</p>}
+          {!s.urgent_flags.length && !s.low_stock.length && !staleDevices.length && !s.data_quality.card_conflicts && <p className="text-body text-neutral-500">No alerts.</p>}
         </Card>
       </div>
 

@@ -138,7 +138,7 @@ export default function VolunteerApp() {
         )}
         {offlineBanner && !sync.online && (
           <AlertBanner tone="info" className="m-3 mb-0" action={<button className="text-label font-medium underline cursor-pointer" onClick={() => setOfflineBanner(false)}>OK</button>}>
-            <WifiOff className="mr-1 inline size-4" aria-hidden />You&apos;re offline. Keep serving — we&apos;ll sync later.
+            <WifiOff className="mr-1 inline size-4" aria-hidden />You&apos;re offline. Keep serving. We&apos;ll sync later.
           </AlertBanner>
         )}
         <main className={cn("flex-1", !hideNav && "pb-24")}>{body}</main>

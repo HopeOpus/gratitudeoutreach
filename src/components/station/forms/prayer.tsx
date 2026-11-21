@@ -34,7 +34,7 @@ export function PrayerForm({ visit, session, stations, saving, onSubmit }: FormP
           <Segmented label="Decision" value={decision} onChange={setDecision} options={[{ value: "none", label: "None" }, { value: "salvation", label: "Salvation" }, { value: "rededication", label: "Rededication" }]} />
         </Section>
         {decision !== "none" && (
-          <AlertBanner tone="success"><PartyPopper className="mr-1 inline size-4" aria-hidden />Praise God! A follow-up will be created for {visit.full_name.split(" ")[0]}{visit.consent_followup ? "." : " (no follow-up contact consent: the team will see the name only)."}</AlertBanner>
+          <AlertBanner tone="success"><PartyPopper className="mr-1 inline size-4" aria-hidden />Praise God! Saving creates a follow-up for {visit.full_name.split(" ")[0]}{visit.consent_followup ? "." : " (no follow-up contact consent: the team will see the name only)."}</AlertBanner>
         )}
         <div className="flex flex-col gap-2">
           <Toggle label="Wants follow-up" checked={wantsFollowup} onChange={setWantsFollowup} />
