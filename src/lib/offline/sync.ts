@@ -318,7 +318,10 @@ export function startSyncEngine(editionId: string, handleEnd: (why: "revoked" | 
   };
   const beat = async () => {
     const r = await heartbeat();
-    if ((r === "revoked" || r === "expired") && onEnd) onEnd(r);
+    if ((r === "revoked" || r === "expired") && onEnd) { onEnd(r); return; }
+    // Safety net: Realtime can drop events under load; a cheap delta every 30 s
+    // guarantees every device converges even if a broadcast was missed.
+    if (r === "ok") void pullDelta();
   };
   window.addEventListener("online", kick);
   window.addEventListener("offline", () => setSyncState({ online: false }));
@@ -350,7 +353,7 @@ export async function endSession(opts: { callServer?: boolean } = {}) {
   if (opts.callServer && navigator.onLine) {
     await sb.rpc("leave_session").then(() => undefined, () => undefined);
   }
-  await purgeLocalData();
+  await purgeLocalData({ lock: true });
   await sb.auth.signOut().catch(() => undefined);
   try { localStorage.removeItem("gc-volunteer-auth"); } catch { /* ignore */ }
 }

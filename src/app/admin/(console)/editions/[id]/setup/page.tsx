@@ -67,6 +67,7 @@ export default function SetupPage({ params }: { params: Promise<{ id: string }> 
         actions={<>
           <Button variant="secondary" onClick={() => setShow(!show)}>{show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}{show ? "Hide PINs" : "Show PINs"}</Button>
           <Button variant="secondary" asChild><a href={`/api/posters/pdf?edition=${id}`} target="_blank" rel="noopener"><FileDown className="size-4" /> Station posters (PDF)</a></Button>
+          <Button variant="secondary" asChild><a href={`/api/guides/pdf?edition=${id}`} target="_blank" rel="noopener"><FileDown className="size-4" /> Quick guides (PDF)</a></Button>
           <Button onClick={() => setAddOpen(true)} disabled={closed}><Plus className="size-4" /> Add station</Button>
         </>} />
       <ReadOnlyNotice closed={closed} />

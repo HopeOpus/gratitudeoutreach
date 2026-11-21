@@ -19,14 +19,15 @@ import { CodeKeypad } from "./code-keypad";
 import { navigate } from "./nav";
 import { cn } from "@/lib/utils";
 import { HomeView } from "./views/home";
-import { PendingView } from "./views/pending";
-import { ProfileView } from "./views/profile";
-import { SettingsView } from "./views/settings";
-import { PrepareView } from "./views/prepare";
 import { ScanContext } from "./scan-context";
+import { installGlobalErrorHandlers } from "@/lib/monitoring";
 
 const Scanner = dynamic(() => import("./scanner"), { ssr: false });
 const ServeView = dynamic(() => import("./views/serve").then((m) => m.ServeView), { ssr: false, loading: () => <ViewSkeleton /> });
+const PendingView = dynamic(() => import("./views/pending").then((m) => m.PendingView), { ssr: false, loading: () => <ViewSkeleton /> });
+const ProfileView = dynamic(() => import("./views/profile").then((m) => m.ProfileView), { ssr: false, loading: () => <ViewSkeleton /> });
+const SettingsView = dynamic(() => import("./views/settings").then((m) => m.SettingsView), { ssr: false, loading: () => <ViewSkeleton /> });
+const PrepareView = dynamic(() => import("./views/prepare").then((m) => m.PrepareView), { ssr: false, loading: () => <ViewSkeleton /> });
 const SearchView = dynamic(() => import("./views/search").then((m) => m.SearchView), { ssr: false, loading: () => <ViewSkeleton /> });
 const RegisterView = dynamic(() => import("./views/register").then((m) => m.RegisterView), { ssr: false, loading: () => <ViewSkeleton /> });
 
@@ -49,6 +50,8 @@ export default function VolunteerApp() {
   const [notFound, setNotFound] = useState<string | null>(null);
   const [offlineBanner, setOfflineBanner] = useState(false);
   const [registerCard, setRegisterCard] = useState<string | null>(null);
+
+  useEffect(() => installGlobalErrorHandlers("station"), []);
 
   // Guard: no session -> join. Expired > 48h -> purge.
   useEffect(() => {

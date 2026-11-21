@@ -92,11 +92,13 @@ A Lead PIN entered at join ("I'm the Station Lead") makes that person a Station 
 
 1. **Supabase**: create a project (Pro plan recommended for the event month). In *Auth → Providers*, enable **Email** and **Anonymous sign-ins**. Raise the anonymous sign-in rate limit to about 300/hour (all volunteers may join from one venue IP).
 2. Apply the schema: `pnpm exec supabase link --project-ref <ref>` then `pnpm exec supabase db push`. **Do not run `seed.sql` in production.**
-3. Create the organisation and first Super Admin in the SQL editor:
+3. Create the organisation in the SQL editor, then the first Super Admin with the script (it prints a generated password):
    ```sql
-   insert into organizations (name, church_name, consent_text) values ('Gratitude Outreach', 'Gratitude Church', '<consent script>') returning id;
-   -- invite the admin in Auth → Users, then:
-   insert into org_members (org_id, user_id, role, display_name) values ('<org id>', '<user id>', 'super_admin', 'Name');
+   insert into organizations (name, church_name, consent_text) values ('Gratitude Outreach', 'Gratitude Church', '<consent script>');
+   ```
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<key> \
+     node scripts/create-admin.mjs you@church.org super_admin "Your Name"
    ```
 4. **Vercel**: import the repo and set the env vars above (service role, `JOIN_TOKEN_SECRET`, `CRON_SECRET` as *server* variables). `vercel.json` schedules the nightly retention job.
 5. In Supabase *Auth → URL configuration*, set the site URL to your Vercel domain (for magic links and invites).
@@ -112,6 +114,7 @@ A Lead PIN entered at join ("I'm the Station Lead") makes that person a Station 
 - [ ] Enter inventory with opening quantities and low-stock thresholds.
 - [ ] Generate cards: expected turnout + 30%. Print the PDF **at 100% scale**, test-scan one printed card with a phone, then print and cut the rest.
 - [ ] Print station posters (*Stations → Station posters*). They show the join QR and PIN.
+- [ ] Print one quick guide per station (*Stations → Quick guides*) and tape it to each table.
 - [ ] Review the consent script (*Settings*).
 - [ ] Run a training session on the **Training 2026** edition with real volunteers on their own phones. Include 10–20 minutes in airplane mode.
 
@@ -143,15 +146,39 @@ A Lead PIN entered at join ("I'm the Station Lead") makes that person a Station 
 - Volunteer sessions expire 6 hours after the event day. Devices purge local data 48 hours after expiry, or immediately when a coordinator ends the session.
 - Confidential notes are automatically redacted after the retention period (default 24 months after close).
 
+### Backups and data export
+- **Before the event:** on the Supabase Pro plan, daily backups are automatic. Also take a manual snapshot (*Database → Backups*) the evening before.
+- **During the event:** every phone keeps its own records until they sync, so a server outage loses nothing. Phones keep working offline, and the outbox drains when the server is back.
+- **Straight after closing:** download every Excel export from *Reports* and the summary PDF, and store them in the church's shared drive (access limited to the leadership team). Exports never contain medical or counselling notes.
+- **Full database copy** (Super Admin, technical): `pnpm exec supabase db dump --linked -f backup-$(date +%F).sql` and `pnpm exec supabase db dump --linked --data-only -f data-$(date +%F).sql`. Treat these files as confidential: they contain everything, including confidential notes.
+- **Restore:** a Supabase point-in-time restore (*Database → Backups*), or `psql <new db url> -f backup.sql -f data.sql` into a fresh project, then `supabase db push` to confirm migrations match.
+
+---
+
+## Hardening checks (Phase 7)
+
+| Check | How | Latest local result |
+|---|---|---|
+| Load: 150 devices, 5,000 people, 30,000 services | `node scripts/load-test.mjs` (local or **staging** only) | 0 lost, 0 duplicated, dashboard = ground truth; p95 589 ms at ~390 writes/s |
+| Realtime at event pace | `node scripts/load-test.mjs --devices 40 --people 300 --services 240 --listeners 20 --rate 8` | 4,800 / 4,800 events delivered, p95 14 ms |
+| Accessibility (WCAG 2.2 AA, axe) | `pnpm e2e tests/e2e/a11y.spec.ts` | 0 serious/critical issues on volunteer and admin screens |
+| JS budget `/s` | measure initial scripts from `/s` HTML | 189.5 KB gzip (budget 200 KB) |
+| Large system font | text sizes use `rem`; a 200% font test runs in the a11y suite | No horizontal overflow; station loop usable |
+| Device purge + rate limit | `pnpm e2e tests/e2e/hardening.spec.ts`, `supabase/tests/04_rate_limit.sql` | Revoked phone wiped; 5 failures per device / 30 per venue IP |
+
+Under artificial bursts (hundreds of writes per second), Supabase Realtime throttles fan-out. Each phone also pulls a delta every 30 seconds, so every device converges anyway.
+
+**Error monitoring:** client errors are scrubbed (no names, phones, card codes or ids) and sent to `/api/client-errors`, which writes them to the Vercel logs (`"type":"client_error"`). To add Sentry later, call it from `src/lib/monitoring.ts`.
+
 ---
 
 ## Privacy and security (NDPA 2023)
 
 - Consent is captured at registration (data processing required, follow-up contact optional), with the consent text version.
-- RLS is enabled with **default deny on every table**. It is tested by pgTAP (`supabase/tests`, 94 assertions), including every denied cell in the role matrix.
+- RLS is enabled with **default deny on every table**. It is tested by pgTAP (`supabase/tests`, 97 assertions), including every denied cell in the role matrix.
 - Medical and counselling details live only in `confidential_records`. They are readable **only** by sessions at that station type. Admins need audited, 1-hour **break-glass** access.
 - No personal data in QR codes (`GC:GO26-0142` only), URLs (visit UUIDs only) or logs. Supabase responses and admin pages are never cached by the service worker.
-- PINs are bcrypt-hashed. Joins are rate-limited (5 failures per 5 minutes per user/IP, then a lockout).
+- PINs are bcrypt-hashed. Joins are rate-limited: 5 failures per 5 minutes per phone, and 30 per venue IP (phones on one Wi-Fi share an IP, so a few typos never lock out the whole venue).
 
 ## Tests
 
@@ -161,4 +188,5 @@ A Lead PIN entered at join ("I'm the Station Lead") makes that person a Station 
 | `supabase/tests/02_workflows.sql` | Registration, card assignment, salvation → follow-up, urgent counselling flag, medical dispense → stock, undo/void, LWW patches, closed edition |
 | `supabase/tests/03_upsert_sync.sql` | Offline outbox upserts for every client-written table; idempotent retries |
 | `tests/unit` | Phone normalisation, card codes, summary privacy, schemas, vitals, sync retry rules |
-| `tests/e2e` | Join, offline registration → sync with no duplicates, offline lookup + realtime on a second device, confidential visibility per role, exports, PDFs |
+| `supabase/tests/04_rate_limit.sql` | Per-device and per-venue-IP PIN lockout |
+| `tests/e2e` | Join, offline registration → sync with no duplicates, offline lookup + realtime on a second device, confidential visibility per role, exports, PDFs, accessibility (axe), device purge on revoke, PIN lockout |

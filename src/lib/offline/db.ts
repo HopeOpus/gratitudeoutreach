@@ -151,7 +151,15 @@ class GratitudeDB extends Dexie {
 }
 
 let _db: GratitudeDB | null = null;
+let locked = false;
+export class SessionEndedError extends Error {
+  name = "SessionEndedError";
+  constructor() { super("Session ended: local data is locked"); }
+}
 export function db(): GratitudeDB {
+  // After a session ends this page may still have sync calls in flight; they must
+  // never re-create data on a wiped (revoked/expired) device.
+  if (locked) throw new SessionEndedError();
   if (!_db) _db = new GratitudeDB();
   return _db;
 }
@@ -165,9 +173,11 @@ export async function setMeta(key: string, value: unknown) {
   await db().meta.put({ key, value });
 }
 
-/** Wipe everything on this device (sign-out, revoke, expiry). */
-export async function purgeLocalData() {
-  const d = db();
-  await d.delete();
+/** Wipe everything on this device. With `lock`, nothing can write again until the page reloads. */
+export async function purgeLocalData(opts: { lock?: boolean } = {}) {
+  const d = _db ?? new GratitudeDB();
+  if (opts.lock) locked = true;
+  d.close();
+  await Dexie.delete("gratitude-connect");
   _db = null;
 }

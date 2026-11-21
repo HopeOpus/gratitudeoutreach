@@ -56,3 +56,19 @@ export async function adminLogin(page: Page, email = "coordinator@gratitude.test
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL("**/admin");
 }
+
+/** Service-role PATCH, test-only. */
+export async function restPatch(path: string, body: Record<string, unknown>) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method: "PATCH",
+    headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+}
+
+/** Test-only: forget failed PIN attempts so rate-limit tests don't lock out later tests. */
+export async function clearFailedJoins() {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/join_attempts?success=eq.false`, { method: "DELETE", headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` } });
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+}

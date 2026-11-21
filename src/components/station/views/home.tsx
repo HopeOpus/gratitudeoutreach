@@ -30,7 +30,7 @@ export function HomeView({ session }: { session: VolunteerSession }) {
           type="button"
           onClick={() => (isReg ? openScanner("register") : openScanner("lookup"))}
           disabled={readOnly && isReg}
-          className="grid size-40 place-items-center rounded-full bg-leaf text-white shadow-pop animate-pulse-soft active:bg-leaf-600 disabled:opacity-50 cursor-pointer"
+          className="grid size-40 place-items-center rounded-full bg-leaf-600 text-white shadow-pop animate-pulse-soft active:bg-leaf-700 disabled:opacity-50 cursor-pointer"
           aria-label={isReg ? "New person: scan blank card" : "Scan card"}
         >
           <span className="flex flex-col items-center gap-1">

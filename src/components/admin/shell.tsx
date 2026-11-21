@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { installGlobalErrorHandlers } from "@/lib/monitoring";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -20,6 +21,7 @@ const NAV = [
 ];
 
 export function AdminShell({ admin, children }: { admin: AdminInfo; children: React.ReactNode }) {
+  useEffect(() => installGlobalErrorHandlers("admin"), []);
   const [qc] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 10_000, refetchOnWindowFocus: true, retry: 1 } } }));
   return (
     <QueryClientProvider client={qc}>
