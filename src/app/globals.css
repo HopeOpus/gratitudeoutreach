@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+/* Gratitude Connect design tokens — docs/DesignSystem.md.
+   Default Tailwind colours and font weights are removed on purpose:
+   only brand tokens exist, and there is no semibold/bold. */
+@theme {
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  --color-forest: #07210d;
+  --color-forest-50: #ebedec;
+  --color-forest-100: #cdd3cf;
+  --color-forest-300: #9ca69e;
+  --color-forest-500: #5e6f62;
+  --color-forest-900: #07210d;
+  --color-forest-950: #041408;
+
+  --color-leaf: #188b12;
+  --color-leaf-50: #edf6ec;
+  --color-leaf-100: #d1e8d0;
+  --color-leaf-200: #a3d1a0;
+  --color-leaf-400: #69b465;
+  --color-leaf-500: #188b12;
+  --color-leaf-600: #136f0e;
+  --color-leaf-700: #0e530b;
+
+  --color-fresh: #53d34c;
+  --color-fresh-50: #f1fbf1;
+  --color-fresh-100: #ddf6db;
+  --color-fresh-200: #baedb7;
+  --color-fresh-400: #8fe28b;
+  --color-fresh-500: #53d34c;
+  --color-fresh-600: #42a93d;
+  --color-fresh-700: #327f2e;
+
+  --color-teal: #09bfc2;
+  --color-teal-50: #ebfafa;
+  --color-teal-100: #cef2f3;
+  --color-teal-200: #9de5e7;
+  --color-teal-400: #5fd5d7;
+  --color-teal-500: #09bfc2;
+  --color-teal-600: #07999b;
+  --color-teal-700: #057374;
+
+  --color-ink: #272727;
+
+  --color-neutral-0: #ffffff;
+  --color-neutral-25: #f7f9f7;
+  --color-neutral-50: #eff2ef;
+  --color-neutral-100: #e1e6e2;
+  --color-neutral-300: #b5beb7;
+  --color-neutral-500: #6b756d;
+  --color-neutral-700: #3f4741;
+  --color-neutral-900: #272727;
+
+  --color-warning: #b45309;
+  --color-warning-bg: #fef3c7;
+  --color-danger: #b42318;
+  --color-danger-bg: #fee4e2;
+  --color-info: #057374;
+  --color-info-bg: #ebfafa;
+  --color-success: #136f0e;
+  --color-success-bg: #edf6ec;
+  --color-confidential: #4b3f72;
+  --color-confidential-bg: #efebfa;
+
+  /* Station accents */
+  --color-st-registration: #07210d;
+  --color-st-prayer: #07999b;
+  --color-st-counselling: #4b3f72;
+  --color-st-medical: #b42318;
+  --color-st-food: #188b12;
+  --color-st-clothing: #42a93d;
+  --color-st-custom: #3f4741;
+
+  --font-sans: var(--font-sora), system-ui, sans-serif;
+  --font-weight-*: initial;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+
+  --text-display: 40px;
+  --text-display--line-height: 48px;
+  --text-h1: 28px;
+  --text-h1--line-height: 36px;
+  --text-h2: 22px;
+  --text-h2--line-height: 30px;
+  --text-h3: 18px;
+  --text-h3--line-height: 26px;
+  --text-body-lg: 17px;
+  --text-body-lg--line-height: 26px;
+  --text-body: 15px;
+  --text-body--line-height: 24px;
+  --text-label: 14px;
+  --text-label--line-height: 20px;
+  --text-caption: 13px;
+  --text-caption--line-height: 18px;
+  --text-code: 20px;
+  --text-code--line-height: 28px;
+  --text-hero: 56px;
+  --text-hero--line-height: 64px;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --shadow-sm: 0 1px 2px rgba(7, 33, 13, 0.06);
+  --shadow-sheet: 0 -8px 24px rgba(7, 33, 13, 0.12);
+  --shadow-pop: 0 8px 24px rgba(7, 33, 13, 0.12);
+
+  --ease-brand: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --animate-pulse-soft: pulse-soft 2.4s var(--ease-brand) infinite;
+  --animate-highlight: highlight 2s var(--ease-brand);
+  --animate-sheet-up: sheet-up 250ms var(--ease-brand);
+  --animate-fade-in: fade-in 150ms var(--ease-brand);
+  --animate-spin-slow: spin 1.2s linear infinite;
+
+  @keyframes pulse-soft {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(24, 139, 18, 0.35); }
+    50% { box-shadow: 0 0 0 18px rgba(24, 139, 18, 0); }
+  }
+  @keyframes highlight {
+    from { background-color: var(--color-fresh-50); }
+    to { background-color: transparent; }
+  }
+  @keyframes sheet-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: var(--color-neutral-25);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-weight: 400;
+  }
+  /* Belt and braces: nothing heavier than Medium (500). */
+  b, strong, th, h1, h2, h3, h4, h5, h6 {
+    font-weight: 500;
+  }
+  input, select, textarea, button {
+    font: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-leaf);
+    outline-offset: 2px;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  body { background: white; }
+}
