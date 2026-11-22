@@ -39,6 +39,7 @@ export default function BeneficiariesPage() {
       return data as unknown as Ben[];
     },
     enabled: tab === "all",
+    refetchInterval: 10_000,
   });
 
   const dups = useQuery({

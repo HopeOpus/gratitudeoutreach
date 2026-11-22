@@ -1,21 +1,24 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, MoreVertical, AlertTriangle, CornerDownRight, Ban, Pencil, CreditCard, LogOut, ClipboardPen, Lock, Plus } from "lucide-react";
+import { ArrowLeft, MoreVertical, AlertTriangle, CornerDownRight, Ban, Pencil, CreditCard, LogOut, ClipboardPen, Lock, Plus, CheckCircle2, ListPlus, Printer } from "lucide-react";
 import type { VolunteerSession } from "@/lib/offline/session";
-import { useStations, useVisit, useVisitConfidential, useVisitFlags, useVisitNeeds, useVisitRecords } from "@/lib/offline/hooks";
-import { setNeed, patchBeneficiary, replaceCard, checkOut } from "@/lib/offline/mutations";
+import { useInventory, useStations, useVisit, useVisitConfidential, useVisitFlags, useVisitNeeds, useVisitRecords } from "@/lib/offline/hooks";
+import { setNeed, patchBeneficiary, replaceCard, checkOut, recordService, undoService } from "@/lib/offline/mutations";
+import { ticksFor, defaultTicks, buildQuickPayload, itemChoicesFor } from "@/lib/quick-ticks";
+import type { StationKind } from "@/lib/stations";
+import { QrSlip, printSlip } from "../qr-slip";
 import { volunteerClient } from "@/lib/supabase/volunteer";
 import { navigate, back } from "../nav";
 import { useScan } from "../scan-context";
 import { NeedChip, TimelineItem, ReturningBadge, metaLine, LockedNote } from "../bits";
 import { setOverride } from "../override";
 import { Button } from "@/components/ui/button";
-import { AlertBanner, CodeBadge, EmptyState, Skeleton, Card } from "@/components/ui/misc";
+import { AlertBanner, CodeBadge, EmptyState, Skeleton, Card, Checkbox } from "@/components/ui/misc";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Input, Field } from "@/components/ui/input";
 import { Chip, ChipGroup } from "@/components/ui/chip";
 import { toast } from "@/components/ui/toast";
-import { cn, firstName, formatTime, errorMessage } from "@/lib/utils";
+import { cn, firstName, formatTime, errorMessage, vibrate } from "@/lib/utils";
 import { parseCardPayload } from "@/lib/cards";
 import { abnormalVitals } from "@/lib/vitals";
 import { isConfidentialKind } from "@/lib/stations";
@@ -34,6 +37,10 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
   const [sheet, setSheet] = useState<null | "menu" | "refer" | "decline" | "again" | "override" | "edit" | "card" | "needs">(null);
   const seen = useRef<Set<string> | null>(null);
   const [freshIds, setFreshIds] = useState<Set<string>>(new Set());
+  const inventory = useInventory(session.station.id);
+  const [ticked, setTicked] = useState<string[] | null>(null);
+  const [pickedItems, setPickedItems] = useState<string[]>([]);
+  const [savingTicks, setSavingTicks] = useState(false);
 
   // Highlight records that arrive while the profile is open (FR-5.5).
   useEffect(() => {
@@ -65,6 +72,25 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
   const otherFlags = flags.filter((f) => f !== referralFlag);
   const myConfidential = isConfidentialKind(myStation.kind) ? confidential.filter((c) => c.kind === myStation.kind) : [];
   const lastVitals = myStation.kind === "medical" ? myConfidential.map((c) => c.payload.vitals as Record<string, number> | undefined).find(Boolean) : undefined;
+
+  const quickTicks = ticksFor(myStation.kind as StationKind);
+  const currentTicks = ticked ?? defaultTicks(myStation.kind as StationKind);
+  const itemChoices = itemChoicesFor(myStation.kind as StationKind, inventory ?? []);
+  const saveTicks = async () => {
+    setSavingTicks(true);
+    try {
+      const p = buildQuickPayload(myStation.kind as StationKind, currentTicks, inventory ?? [], pickedItems);
+      const id = await recordService({ visit, ...p });
+      vibrate(30);
+      toast.saved(`Saved · ${myStation.name} for ${name}`, () => {
+        void undoService(id).then(() => toast.info("Undone"), (e) => toast.error(errorMessage(e)));
+      });
+      navigate("/s", { replace: true });
+    } catch (e) {
+      toast.error(errorMessage(e));
+      setSavingTicks(false);
+    }
+  };
 
   const startServe = () => {
     if (lastMine) { setSheet("again"); return; }
@@ -111,6 +137,43 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
         </div>
       </section>
 
+      {!isReg && !readOnly && !lastMine && inventory !== undefined && (
+        <section className="mx-4 mb-4 rounded-lg border-2 border-leaf bg-white p-4" aria-labelledby="tick-h">
+          <h3 id="tick-h" className="text-h3 font-medium text-forest">Tick what was done at {myStation.name}</h3>
+          <div className="mt-3 flex flex-col gap-2">
+            {quickTicks.map((t) => (
+              <Checkbox key={t.id} id={`tick-${t.id}`} checked={currentTicks.includes(t.id)} label={t.label}
+                onChange={(on) => setTicked(on ? [...currentTicks, t.id] : currentTicks.filter((x) => x !== t.id))} />
+            ))}
+          </div>
+          {itemChoices.length > 0 && currentTicks.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-2 text-label text-neutral-700">What did they get? (optional)</p>
+              <ChipGroup label="Items given">
+                {itemChoices.map((i) => (
+                  <Chip key={i.id} selected={pickedItems.includes(i.id)} disabled={i.remaining <= 0}
+                    onToggle={() => setPickedItems(pickedItems.includes(i.id) ? pickedItems.filter((x) => x !== i.id) : [...pickedItems, i.id])}>
+                    {i.remaining <= 0 ? `${i.name} (out)` : i.name}
+                  </Chip>
+                ))}
+              </ChipGroup>
+            </div>
+          )}
+          <button type="button" onClick={() => navigate(`/s/p/${visit.id}/serve`)} className="mt-3 inline-flex min-h-12 items-center gap-1 text-label font-medium text-leaf-700 underline cursor-pointer">
+            <ListPlus className="size-4" aria-hidden /> More details (full form)
+          </button>
+        </section>
+      )}
+      {!isReg && lastMine && (
+        <section className="mx-4 mb-4 flex items-start gap-3 rounded-lg bg-leaf-50 p-4" aria-label={`Done at ${myStation.name}`}>
+          <CheckCircle2 className="mt-0.5 size-6 shrink-0 text-leaf-600" aria-hidden />
+          <div>
+            <p className="text-body-lg font-medium text-forest">Done at {myStation.name}</p>
+            <p className="text-body text-neutral-700">{lastMine.summary} · {formatTime(lastMine.served_at)} by {lastMine.served_by_name}</p>
+          </div>
+        </section>
+      )}
+
       <section className="flex-1 border-t border-neutral-100 bg-white px-4 py-3" aria-labelledby="tl-h">
         <h3 id="tl-h" className="text-label font-medium text-neutral-700">Today</h3>
         <ol aria-live="polite" className="divide-y divide-neutral-50">
@@ -142,9 +205,13 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
           {isReg ? (
             <Button size="lg" block onClick={() => setSheet("needs")}><ClipboardPen className="size-5" /> Update needs</Button>
           ) : (
-            <Button size="lg" block onClick={startServe} variant={lastMine ? "secondary" : "primary"}>
-              {lastMine ? `Already served at ${formatTime(lastMine.served_at)} · Record again?` : `Record ${myStation.name} service`}
-            </Button>
+            lastMine ? (
+              <Button size="lg" block variant="secondary" onClick={startServe}>Record again</Button>
+            ) : (
+              <Button size="lg" block loading={savingTicks} disabled={currentTicks.length === 0 || inventory === undefined} onClick={() => void saveTicks()}>
+                <CheckCircle2 className="size-5" /> Save
+              </Button>
+            )
           )}
           <div className="flex gap-2">
             <Button variant="secondary" className="flex-1" onClick={() => setSheet("refer")}><CornerDownRight className="size-5" /> Refer</Button>
@@ -159,6 +226,9 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
         <div className="flex flex-col gap-2">
           <Button variant="secondary" size="lg" block className="justify-start" disabled={readOnly} onClick={() => setSheet("edit")}><Pencil className="size-5" /> Edit details</Button>
           <Button variant="secondary" size="lg" block className="justify-start" disabled={readOnly} onClick={() => setSheet("card")}><CreditCard className="size-5" /> Replace lost card</Button>
+          {visit.card_code && (
+            <Button variant="secondary" size="lg" block className="justify-start" onClick={() => { setSheet(null); printSlip(); }}><Printer className="size-5" /> Print QR slip again</Button>
+          )}
           {(myStation.kind === "checkout" || isReg) && visit.status === "active" && (
             <Button variant="secondary" size="lg" block className="justify-start" disabled={readOnly}
               onClick={async () => { await checkOut(visit); setSheet(null); toast.saved(`Checked out · ${name}`); }}><LogOut className="size-5" /> Check out</Button>
@@ -199,6 +269,7 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
       <EditSheet open={sheet === "edit"} onClose={() => setSheet(null)} visit={visit} />
       <ReplaceCardSheet open={sheet === "card"} onClose={() => setSheet(null)} visitId={visit.id} prefix={session.edition.code_prefix}
         onReplace={async (code) => { await replaceCard(visit, code); setSheet(null); toast.saved(`New card ${code} for ${name}`); }} />
+      {visit.card_code && <QrSlip code={visit.card_code} firstName={name} eventName={session.edition.name} />}
       <NeedsSheet open={sheet === "needs"} onClose={() => setSheet(null)} stations={serviceStations} active={needByStation}
         onToggle={async (stationId, on) => { await setNeed(visit, stationId, on ? "pending" : "declined", on ? undefined : "Removed at registration"); }} />
     </div>

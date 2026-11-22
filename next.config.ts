@@ -25,6 +25,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // A separate build folder lets the e2e build run while `pnpm dev` uses .next.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   poweredByHeader: false,
   serverExternalPackages: ["@react-pdf/renderer", "exceljs"],
   // PDF routes read logos and Sora font files from disk.

@@ -28,17 +28,17 @@ export function HomeView({ session }: { session: VolunteerSession }) {
       <div className="flex flex-col items-center gap-3 py-2">
         <button
           type="button"
-          onClick={() => (isReg ? openScanner("register") : openScanner("lookup"))}
+          onClick={() => (isReg ? navigate("/s/register") : openScanner("lookup"))}
           disabled={readOnly && isReg}
           className="grid size-40 place-items-center rounded-full bg-leaf-600 text-white shadow-pop animate-pulse-soft active:bg-leaf-700 disabled:opacity-50 cursor-pointer"
-          aria-label={isReg ? "New person: scan blank card" : "Scan card"}
+          aria-label={isReg ? "New person" : "Scan QR code"}
         >
           <span className="flex flex-col items-center gap-1">
             {isReg ? <UserPlus className="size-12" strokeWidth={1.75} /> : <ScanLine className="size-12" strokeWidth={1.75} />}
-            <span className="text-body-lg font-medium">{isReg ? "New person" : "Scan card"}</span>
+            <span className="text-body-lg font-medium">{isReg ? "New person" : "Scan QR"}</span>
           </span>
         </button>
-        {isReg && <p className="text-caption text-neutral-500">Scan a blank Gratitude Card to start</p>}
+        <p className="text-caption text-neutral-500">{isReg ? "Take their details, then print their QR slip" : "Scan their QR, then tick what was done"}</p>
       </div>
 
       <div className="flex flex-col gap-2">

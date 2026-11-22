@@ -11,7 +11,7 @@ declare global {
   interface Window { BarcodeDetector?: new (opts: { formats: string[] }) => Detector }
 }
 
-export default function Scanner({ onCode, onClose, onTypeCode, title = "Scan card", accept = parseCardPayload, rejectHint = "That QR code is not a Gratitude Card." }: {
+export default function Scanner({ onCode, onClose, onTypeCode, title = "Scan card", accept = parseCardPayload, rejectHint = "That QR code is not from Gratitude Outreach." }: {
   onCode: (code: string) => void; onClose: () => void; onTypeCode: () => void; title?: string;
   accept?: (raw: string) => string | null; rejectHint?: string;
 }) {

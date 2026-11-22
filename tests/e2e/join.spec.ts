@@ -8,7 +8,7 @@ test("volunteer joins with a PIN, no email or password", async ({ page }) => {
 
   await joinStation(page, "555555", "Kunle");
   await expect(page.getByRole("heading", { name: "Food" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Scan card" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Scan QR code" })).toBeVisible();
   await expect(page.getByText("TRAINING")).toBeVisible();
 });
 

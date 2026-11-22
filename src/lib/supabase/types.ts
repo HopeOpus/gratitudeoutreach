@@ -745,7 +745,7 @@ isOneToOne: false
 { Args: { "p_pin": string }; Returns: Json
                            },
 "reserve_code_block":
-{ Args: { "p_size"?: number }; Returns: Json
+{ Args: { "p_new"?: boolean,"p_size"?: number }; Returns: Json
                            },
 "resolve_flag":
 { Args: { "p_flag": string }; Returns: undefined

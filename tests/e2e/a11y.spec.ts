@@ -18,26 +18,27 @@ test("volunteer screens pass axe", async ({ page }) => {
   await audit(page, "station home");
   await openByCode(page, "TR26-0012");
   await audit(page, "profile");
-  await page.getByRole("button", { name: /Record Food service|Already served/ }).click();
-  if (await page.getByRole("dialog").isVisible().catch(() => false)) await page.keyboard.press("Escape");
-  else await audit(page, "food form");
+  const more = page.getByRole("button", { name: /More details/ });
+  if (await more.isVisible().catch(() => false)) { await more.click(); await audit(page, "food form"); }
 });
 
 test("registration and medical forms pass axe", async ({ browser }) => {
   const r = await (await browser.newContext()).newPage();
   await joinStation(r, "111111", "Tobi");
   await r.getByRole("button", { name: /New person/ }).click();
-  await r.getByText("Scan blank card").waitFor();
-  await r.getByRole("button", { name: "Type card code" }).last().click();
-  for (const d of "0390") await r.getByRole("button", { name: d, exact: true }).click();
-  await r.getByRole("button", { name: /^Use/ }).click();
+  await r.getByLabel(/Full name/).waitFor();
   await audit(r, "registration details");
 
   const m = await (await browser.newContext()).newPage();
   await joinStation(m, "444444", "Dr Amina", { rolePin: "404040" });
   await openByCode(m, "TR26-0020");
-  await m.getByRole("button", { name: /Record Medical|Already served/ }).click();
-  if (await m.getByRole("button", { name: "Record again" }).isVisible().catch(() => false)) await m.getByRole("button", { name: "Record again" }).click();
+  await audit(m, "medical tick list");
+  const more = m.getByRole("button", { name: /More details/ });
+  if (await more.isVisible().catch(() => false)) await more.click();
+  else {
+    await m.getByRole("button", { name: "Record again" }).click();
+    await m.getByRole("dialog").getByRole("button", { name: "Record again" }).click();
+  }
   await m.getByLabel(/BP systolic/).fill("170");
   await audit(m, "medical form");
 });
@@ -55,7 +56,7 @@ test("admin screens pass axe", async ({ browser }) => {
 test("large system font (200%) keeps the station loop usable", async ({ page }) => {
   await joinStation(page, "555555", "Kunle");
   await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
-  const scan = page.getByRole("button", { name: "Scan card" });
+  const scan = page.getByRole("button", { name: "Scan QR code" });
   await expect(scan).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);

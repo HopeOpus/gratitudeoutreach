@@ -2,10 +2,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, ArrowRight, Check, ChevronDown, CreditCard, Keyboard, ScanLine, Sparkles, Users, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, CreditCard, Printer, ScanLine, Users, CheckCircle2, UserPlus, QrCode } from "lucide-react";
 import type { VolunteerSession } from "@/lib/offline/session";
 import { registrationDetailsSchema, type RegistrationDetails, AGE_RANGES, GENDERS, LANGUAGES, CHURCH_MEMBER, COMMUNITIES, isMinor } from "@/lib/schemas/beneficiary";
-import { registerPerson, nextOnTheSpotCode, type ExistingBeneficiary } from "@/lib/offline/mutations";
+import { registerPerson, nextOnTheSpotCode, codesLeft, type ExistingBeneficiary } from "@/lib/offline/mutations";
+import { QrImage, QrSlip, printSlip } from "../qr-slip";
 import { findVisitByCode, useStations } from "@/lib/offline/hooks";
 import { db, type LocalVisit } from "@/lib/offline/db";
 import { volunteerClient } from "@/lib/supabase/volunteer";
@@ -25,7 +26,7 @@ import { cn, firstName, normalizePhone, errorMessage, vibrate } from "@/lib/util
 type Dup = ExistingBeneficiary & { last_edition_name: string | null; last_visit_year: number | null; visit_id_this_edition: string | null; card_code_this_edition: string | null; match_reason: string };
 
 export function RegisterView({ session, initialCard, onCardUsed }: { session: VolunteerSession; initialCard: string | null; onCardUsed: () => void }) {
-  const { openScanner, openKeypad } = useScan();
+  const { openScanner } = useScan();
   const stations = useStations();
   const serviceStations = stations.filter((s) => s.is_service && s.enabled);
   const [card, setCard] = useState<string | null>(null);
@@ -39,7 +40,10 @@ export function RegisterView({ session, initialCard, onCardUsed }: { session: Vo
   const [consentFollowup, setConsentFollowup] = useState(false);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState<LocalVisit | null>(null);
-  const [startedAt] = useState(() => Date.now());
+  const [startedAt, setStartedAt] = useState(() => Date.now());
+  const [printed, setPrinted] = useState(false);
+  const [left, setLeft] = useState<number | null>(null);
+  useEffect(() => { void codesLeft().then(setLeft); }, []);
 
   // Accept a scanned/typed card (FR-3.1, FR-2.4).
   useEffect(() => {
@@ -61,19 +65,18 @@ export function RegisterView({ session, initialCard, onCardUsed }: { session: Vo
     })();
   }, [initialCard, onCardUsed, session.edition.code_prefix, session.edition.id]);
 
-  const createSpotCode = async () => {
-    const code = await nextOnTheSpotCode();
-    if (!code) { toast.error("No on-the-spot codes left on this phone. Connect to the internet and re-join to get more."); return; }
-    setCard(code);
-  };
-
   const save = async () => {
     if (!details) return;
     setSaving(true);
     try {
-      const visit = await registerPerson({ details, cardCode: card, needStationIds: needs, consentFollowup, existing });
+      // No pre-printed card: give the person a code now and print it as a QR slip.
+      const code = card ?? (await nextOnTheSpotCode());
+      if (!code) toast.error("This phone has no QR codes left. Connect to the internet for more, or use pre-printed cards.");
+      const visit = await registerPerson({ details, cardCode: code, needStationIds: needs, consentFollowup, existing });
       vibrate(40);
       setDone(visit);
+      setPrinted(false);
+      void codesLeft().then(setLeft);
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -82,24 +85,32 @@ export function RegisterView({ session, initialCard, onCardUsed }: { session: Vo
   };
 
   const reset = () => {
-    setCard(null); setStep(1); setDetails(null); setExisting(null); setNeeds([]); setConsentData(false); setConsentFollowup(false); setDone(null);
+    setCard(null); setCardProblem(null); setStep(1); setDetails(null); setExisting(null); setNeeds([]); setConsentData(false); setConsentFollowup(false); setDone(null); setStartedAt(Date.now());
   };
 
   if (done) {
     const secs = Math.round((Date.now() - startedAt) / 1000);
+    const name = firstName(done.full_name);
+    const preprinted = !!done.card_code && done.card_code === card;
     return (
-      <div className="flex min-h-[calc(100dvh-56px)] flex-col items-center justify-center gap-5 p-6 text-center">
-        <CheckCircle2 className="size-16 text-leaf" aria-hidden />
-        <p className="text-h2 font-medium text-forest">Registered</p>
+      <div className="flex min-h-[calc(100dvh-56px)] flex-col items-center gap-4 p-6 text-center">
+        <p className="inline-flex items-center gap-2 text-h2 font-medium text-forest"><CheckCircle2 className="size-8 text-leaf" aria-hidden /> {name} is registered</p>
         {done.card_code ? (
-          <p className="rounded-lg bg-white px-6 py-4 text-hero font-light tracking-wider text-forest tabular shadow-sm ring-1 ring-neutral-100">{done.card_code}</p>
-        ) : <p className="text-body text-neutral-700">No card code: search by name at each station.</p>}
-        <p className="text-body-lg text-neutral-700">{done.card_code?.includes("-R") ? `Write this code on a wristband or paper for ${firstName(done.full_name)}.` : `Give the card to ${firstName(done.full_name)}.`}</p>
-        <p className="text-caption text-neutral-500">Saved on this phone · {secs}s</p>
+          <>
+            {!preprinted && <QrImage code={done.card_code} className="w-56 rounded-lg p-2 shadow-sm ring-1 ring-neutral-100" />}
+            <p className="whitespace-nowrap text-h1 font-light tracking-wider text-forest tabular" data-testid="new-code">{done.card_code}</p>
+            <p className="text-body-lg text-neutral-700">{preprinted ? `Give the card to ${name}.` : `Print the QR slip and give it to ${name}. They show it at every stand.`}</p>
+          </>
+        ) : <AlertBanner tone="warning">No code: stations will need to search for {name} by name.</AlertBanner>}
+        <p className="text-caption text-neutral-500">Saved on this phone · {secs}s{left !== null && left < 100 && !preprinted ? ` · ${left} QR codes left on this phone` : ""}</p>
         <div className="flex w-full max-w-sm flex-col gap-2">
-          <Button size="lg" block onClick={() => { reset(); openScanner("register"); }}><ScanLine className="size-5" /> Next person</Button>
-          <Button variant="secondary" size="lg" block onClick={() => navigate(`/s/p/${done.id}`, { replace: true })}>Open profile</Button>
+          {done.card_code && !preprinted && (
+            <Button size="lg" block variant={printed ? "secondary" : "primary"} onClick={() => { printSlip(); setPrinted(true); }}><Printer className="size-5" /> {printed ? "Print again" : "Print QR slip"}</Button>
+          )}
+          <Button size="lg" block variant={done.card_code && !preprinted && !printed ? "secondary" : "primary"} onClick={reset}><UserPlus className="size-5" /> Next person</Button>
+          <Button variant="ghost" size="lg" block onClick={() => navigate(`/s/p/${done.id}`, { replace: true })}>Open profile</Button>
         </div>
+        {done.card_code && !preprinted && <QrSlip code={done.card_code} firstName={name} eventName={session.edition.name} />}
       </div>
     );
   }
@@ -108,80 +119,75 @@ export function RegisterView({ session, initialCard, onCardUsed }: { session: Vo
     <div className="flex min-h-[calc(100dvh-56px)] flex-col">
       <div className="flex items-center gap-2 border-b border-neutral-100 bg-white px-2 py-2">
         <Button variant="ghost" size="icon" aria-label="Back" onClick={() => (step > 1 ? setStep((step - 1) as 1 | 2) : navigate("/s", { replace: true }))}><ArrowLeft className="size-5" /></Button>
-        <div className="flex flex-1 items-center gap-2">
-          <span className="text-label text-neutral-700">Card</span>
-          {card ? <span className="inline-flex items-center gap-1 rounded-sm bg-leaf-50 px-2 py-1 text-label font-medium tracking-wider text-leaf-700"><Check className="size-4" aria-hidden />{card}</span> : <span className="text-caption text-neutral-500">none yet</span>}
+        <div className="flex flex-1 items-center justify-between gap-2">
+          {card ? (
+            <span className="inline-flex items-center gap-1 rounded-sm bg-leaf-50 px-2 py-1 text-label font-medium tracking-wider text-leaf-700"><Check className="size-4" aria-hidden /><CreditCard className="size-4" aria-hidden />{card}</span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-caption text-neutral-700"><QrCode className="size-4" aria-hidden /> QR slip is printed after saving</span>
+          )}
+          {!card && step === 1 && (
+            <Button variant="ghost" size="sm" onClick={() => openScanner("register")}><ScanLine className="size-4" /> Use a pre-printed card</Button>
+          )}
         </div>
       </div>
 
-      {!card ? (
-        <div className="flex flex-col gap-3 p-4">
-          {cardProblem && <AlertBanner tone="danger">{cardProblem}</AlertBanner>}
-          <Card className="flex flex-col items-center gap-3 p-6 text-center">
-            <CreditCard className="size-10 text-leaf" aria-hidden />
-            <p className="text-h3 font-medium text-forest">Scan a blank Gratitude Card</p>
-            <Button size="lg" block onClick={() => openScanner("register")}><ScanLine className="size-5" /> Scan card</Button>
-            <Button variant="secondary" size="lg" block onClick={() => openKeypad("register")}><Keyboard className="size-5" /> Type card code</Button>
-          </Card>
-          <Button variant="ghost" onClick={() => void createSpotCode()}><Sparkles className="size-5" /> No cards left? Create a code</Button>
-        </div>
-      ) : (
-        <>
-          <div className="px-4 pt-4">
-            <p className="text-label text-neutral-700">Step {step} of 3</p>
-            <div className="mt-1 flex gap-1" aria-hidden>{[1, 2, 3].map((s) => <span key={s} className={cn("h-1.5 flex-1 rounded-full", s <= step ? "bg-leaf" : "bg-neutral-100")} />)}</div>
+      {cardProblem && <AlertBanner tone="danger" className="mx-4 mt-3">{cardProblem}</AlertBanner>}
+      {left === 0 && !card && <AlertBanner tone="warning" className="mx-4 mt-3">This phone has no QR codes left. Connect to the internet for more, or use pre-printed cards.</AlertBanner>}
+      <div className="px-4 pt-4">
+        <p className="text-label text-neutral-700">Step {step} of 3</p>
+        <div className="mt-1 flex gap-1" aria-hidden>{[1, 2, 3].map((n) => <span key={n} className={cn("h-1.5 flex-1 rounded-full", n <= step ? "bg-leaf" : "bg-neutral-100")} />)}</div>
+      </div>
+      {step === 1 && (
+        <DetailsStep session={session} initial={details} existing={existing}
+          onExisting={(b) => setExisting(b)}
+          onAlreadyHere={(visitId) => navigate(`/s/p/${visitId}`, { replace: true })}
+          onNext={(d) => { setDetails(d); setStep(2); }} />
+      )}
+      {step === 2 && (
+        <div className="flex flex-1 flex-col">
+          <div className="flex flex-1 flex-col gap-3 p-4">
+            <h2 className="text-h2 font-medium text-forest">What does {firstName(details?.full_name)} need?</h2>
+            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Needs">
+              {serviceStations.map((st) => {
+                const on = needs.includes(st.id);
+                return (
+                  <button key={st.id} type="button" aria-pressed={on} onClick={() => setNeeds(on ? needs.filter((x) => x !== st.id) : [...needs, st.id])}
+                    className={cn("relative flex min-h-28 flex-col items-start justify-between rounded-lg border-2 bg-white p-3 text-left cursor-pointer", on ? "border-leaf bg-leaf-50" : "border-neutral-100")}>
+                    <StationIcon kind={st.kind} size="lg" />
+                    <span className="text-body-lg font-medium text-forest">{st.name}</span>
+                    {on && <Check className="absolute right-3 top-3 size-6 text-leaf-600" aria-hidden />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          {step === 1 && (
-            <DetailsStep session={session} initial={details} existing={existing}
-              onExisting={(b) => setExisting(b)}
-              onAlreadyHere={(visitId) => navigate(`/s/p/${visitId}`, { replace: true })}
-              onNext={(d) => { setDetails(d); setStep(2); }} />
-          )}
-          {step === 2 && (
-            <div className="flex flex-1 flex-col">
-              <div className="flex flex-1 flex-col gap-3 p-4">
-                <h2 className="text-h2 font-medium text-forest">What does {firstName(details?.full_name)} need?</h2>
-                <div className="grid grid-cols-2 gap-2" role="group" aria-label="Needs">
-                  {serviceStations.map((s) => {
-                    const on = needs.includes(s.id);
-                    return (
-                      <button key={s.id} type="button" aria-pressed={on} onClick={() => setNeeds(on ? needs.filter((x) => x !== s.id) : [...needs, s.id])}
-                        className={cn("relative flex min-h-28 flex-col items-start justify-between rounded-lg border-2 bg-white p-3 text-left cursor-pointer", on ? "border-leaf bg-leaf-50" : "border-neutral-100")}>
-                        <StationIcon kind={s.kind} size="lg" />
-                        <span className="text-body-lg font-medium text-forest">{s.name}</span>
-                        {on && <Check className="absolute right-3 top-3 size-6 text-leaf-600" aria-hidden />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="sticky bottom-0 border-t border-neutral-100 bg-white p-3 safe-bottom">
-                <Button size="lg" block onClick={() => setStep(3)}>Next <ArrowRight className="size-5" /></Button>
-              </div>
-            </div>
-          )}
-          {step === 3 && (
-            <div className="flex flex-1 flex-col">
-              <div className="flex flex-1 flex-col gap-4 p-4">
-                <h2 className="text-h2 font-medium text-forest">Consent</h2>
-                <p className="text-caption text-neutral-500">Read this aloud to {firstName(details?.full_name)}{details && isMinor(details.age_range) ? ` and their guardian (${details.guardian_name})` : ""}.</p>
-                <div className="rounded-lg bg-neutral-50 p-4 text-body-lg text-ink">{session.org.consent_text}</div>
-                <Checkbox id="c-data" required checked={consentData} onChange={setConsentData} label="Agrees to us recording their details" description="Required to register." />
-                <Checkbox id="c-fu" checked={consentFollowup} onChange={setConsentFollowup} label="Agrees to be contacted for follow-up" description="Optional. Call or WhatsApp after the event." />
-              </div>
-              <div className="sticky bottom-0 border-t border-neutral-100 bg-white p-3 safe-bottom">
-                <Button size="lg" block disabled={!consentData} loading={saving} onClick={() => void save()}>Save registration</Button>
-              </div>
-            </div>
-          )}
-        </>
+          <div className="sticky bottom-0 border-t border-neutral-100 bg-white p-3 safe-bottom">
+            {needs.length === 0 && <p className="mb-2 text-center text-caption text-neutral-500">Tap every need that applies</p>}
+            <Button size="lg" block onClick={() => setStep(3)}>Next <ArrowRight className="size-5" /></Button>
+          </div>
+        </div>
+      )}
+      {step === 3 && (
+        <div className="flex flex-1 flex-col">
+          <div className="flex flex-1 flex-col gap-4 p-4">
+            <h2 className="text-h2 font-medium text-forest">Consent</h2>
+            <p className="text-caption text-neutral-500">Read this aloud to {firstName(details?.full_name)}{details && isMinor(details.age_range) ? ` and their guardian (${details.guardian_name})` : ""}.</p>
+            <div className="rounded-lg bg-neutral-50 p-4 text-body-lg text-ink">{session.org.consent_text}</div>
+            <Checkbox id="c-data" required checked={consentData} onChange={setConsentData} label="Agrees to us recording their details" description="Required to register." />
+            <Checkbox id="c-fu" checked={consentFollowup} onChange={setConsentFollowup} label="Agrees to be contacted for follow-up" description="Optional. Call or WhatsApp after the event." />
+          </div>
+          <div className="sticky bottom-0 border-t border-neutral-100 bg-white p-3 safe-bottom">
+            <Button size="lg" block disabled={!consentData} loading={saving} onClick={() => void save()}>Save registration</Button>
+          </div>
+        </div>
       )}
 
       <BottomSheet open={!!cardOwner} onOpenChange={(o) => !o && setCardOwner(null)} title={`Card already belongs to ${cardOwner ? `${firstName(cardOwner.full_name)} ${cardOwner.full_name.split(" ").slice(-1)[0]?.[0] ?? ""}.` : ""}`}
-        description="This card is linked to someone already. Open their profile or scan another blank card.">
+        description="This card is linked to someone already. Open their profile, scan another card, or continue and print a QR slip.">
         <div className="flex flex-col gap-2">
           <Button size="lg" block onClick={() => cardOwner && navigate(`/s/p/${cardOwner.id}`, { replace: true })}>Open profile</Button>
           <Button variant="secondary" size="lg" block onClick={() => { setCardOwner(null); openScanner("register"); }}>Scan another</Button>
+          <Button variant="ghost" size="lg" block onClick={() => setCardOwner(null)}>Continue without a card</Button>
         </div>
       </BottomSheet>
     </div>

@@ -27,13 +27,14 @@ test("offline lookup works, and a Food record appears on another device's open p
 
   // A records food
   await openByCode(a, target.card_code);
-  await a.getByRole("button", { name: "Record Food service" }).click();
-  await a.getByRole("radio").filter({ hasNot: a.locator("[disabled]") }).first().click();
+  const ticks = a.getByRole("region", { name: /Tick what was done at Food/ });
+  const first = ticks.getByRole("checkbox").first();
+  if (!(await first.isChecked())) await first.check();
   const t0 = Date.now();
   await a.getByRole("button", { name: "Save", exact: true }).click();
   await expect(a.getByText(/Saved · Food for/)).toBeVisible();
 
-  await expect(b.locator("ol").getByText("Food", { exact: true })).toBeVisible({ timeout: 4000 });
+  await expect(b.locator("ol").getByText("Food", { exact: true }).first()).toBeVisible({ timeout: 4000 });
   const elapsed = Date.now() - t0;
   console.log(`Realtime latency incl. sync: ${elapsed} ms`);
   await ctxA.close();

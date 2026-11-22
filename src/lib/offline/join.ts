@@ -59,7 +59,7 @@ export async function completeJoin(cred: Cred, who: { name: string; phone?: stri
   const { data: stations } = await sb.from("stations_public").select("*").eq("edition_id", session.edition.id).order("sort_order");
   if (stations) await db().stations.bulkPut(stations as unknown as LocalStation[]);
   if (session.station.kind === "registration") {
-    const { data: block } = await sb.rpc("reserve_code_block", { p_size: 200 });
+    const { data: block } = await sb.rpc("reserve_code_block", { p_size: 999 });
     if (block) await setMeta("code_block", block);
   }
   return { ok: true as const, session };

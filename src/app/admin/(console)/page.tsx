@@ -9,6 +9,7 @@ import type { DashboardStats } from "@/lib/dashboard";
 import { useEditionCtx, atLeast } from "@/components/admin/edition-context";
 import { PageHeader, KpiTile, Table, Td, LoadingBlock, ErrorBlock, NeedsEdition } from "@/components/admin/ui";
 import { BarList, CloseEditionSheet } from "@/components/admin/widgets";
+import { LiveActivity, liveActivityKey } from "@/components/admin/live-activity";
 import { StationIcon } from "@/components/station/bits";
 import { Card, AlertBanner, Skeleton } from "@/components/ui/misc";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,13 @@ function Dashboard({ editionId, closed, live, name }: { editionId: string; close
     if (!atLeast(admin, "coordinator")) return;
     const sb = adminClient();
     let t: ReturnType<typeof setTimeout> | null = null;
-    const bump = () => { if (t) clearTimeout(t); t = setTimeout(() => void qc.invalidateQueries({ queryKey: ["dashboard", editionId] }), 400); };
+    const bump = () => {
+      if (t) clearTimeout(t);
+      t = setTimeout(() => {
+        void qc.invalidateQueries({ queryKey: ["dashboard", editionId] });
+        void qc.invalidateQueries({ queryKey: liveActivityKey(editionId) });
+      }, 400);
+    };
     const ch = sb.channel(`dash:${editionId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "service_records", filter: `edition_id=eq.${editionId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "visits", filter: `edition_id=eq.${editionId}` }, bump)
@@ -95,7 +102,7 @@ function Dashboard({ editionId, closed, live, name }: { editionId: string; close
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-        <Card className="p-4">{s.hourly.length ? <HourlyChart hourly={s.hourly} /> : <p className="py-16 text-center text-body text-neutral-500">Charts appear once people start arriving.</p>}</Card>
+        {atLeast(admin, "coordinator") ? <LiveActivity editionId={editionId} stations={s.stations} /> : <HourlyCard hourly={s.hourly} />}
         <Card className="flex flex-col gap-2 p-4" aria-label="Alerts">
           <h2 className="text-h3 font-medium text-forest">Alerts</h2>
           {s.urgent_flags.map((f) => (
@@ -111,6 +118,8 @@ function Dashboard({ editionId, closed, live, name }: { editionId: string; close
           {!s.urgent_flags.length && !s.low_stock.length && !staleDevices.length && !s.data_quality.card_conflicts && <p className="text-body text-neutral-500">No alerts.</p>}
         </Card>
       </div>
+
+      {atLeast(admin, "coordinator") && <HourlyCard hourly={s.hourly} />}
 
       <div className="grid gap-6 xl:grid-cols-3">
         <Card className="p-4">
@@ -150,3 +159,6 @@ function Dashboard({ editionId, closed, live, name }: { editionId: string; close
   );
 }
 
+function HourlyCard({ hourly }: { hourly: DashboardStats["hourly"] }) {
+  return <Card className="p-4">{hourly.length ? <HourlyChart hourly={hourly} /> : <p className="py-16 text-center text-body text-neutral-500">Charts appear once people start arriving.</p>}</Card>;
+}

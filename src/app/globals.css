@@ -175,6 +175,12 @@
   }
 }
 
+/* QR slip printed at registration (src/components/station/qr-slip.tsx). */
+.qr-slip { display: none; }
 @media print {
   body { background: white; }
+  html.printing-slip body * { visibility: hidden; }
+  html.printing-slip .qr-slip, html.printing-slip .qr-slip * { visibility: visible; }
+  html.printing-slip .qr-slip { display: flex; position: fixed; left: 0; top: 0; width: 54mm; padding: 2mm; }
+  @page { margin: 2mm; }
 }

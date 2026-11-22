@@ -106,13 +106,25 @@ A Lead PIN entered at join ("I'm the Station Lead") makes that person a Station 
 
 ---
 
+## How the day works
+
+1. **Volunteers log in to their station.** Each one scans the station poster (or types the station PIN) and enters their name. No accounts or passwords.
+2. **Registration takes the person's details and needs** (Food, Medical, Counselling, Prayer, Clothing...), reads the consent aloud and taps **Save registration**. The phone gives them a code and shows a QR. Tap **Print QR slip** and hand the slip over.
+3. **Every other stand scans the slip.** The person's name, age and needs show, with a short checklist for that stand (for example *Has been prayed for*, *Received healing*, *Gave their life to Christ*, or *Has received food*). Tick what was done and tap **Save**. **More details** opens the full form when needed.
+4. **The Super Admin watches it live** on the dashboard: counts per station, plus a *Live activity* feed of each registration and each tick, with names. Each name links to that person's page, which shows their needs as waiting or done.
+
+All of this works offline and syncs when the network comes back.
+
+**Printing the QR slip.** The slip is 54 mm wide: it fits a 58 mm receipt printer, or prints in the top corner of A4 for cutting out. Any printer the phone can print to works: AirPrint on iPhone, or the Android print service for Wi-Fi and Bluetooth printers. Pair the printer with the registration phone before the event and print one test slip. Each registration phone holds 999 codes and fetches more in the background while online. If a phone runs out while offline, use pre-printed cards (**Use a pre-printed card**) or connect briefly.
+
 ## Event-day runbook
 
 ### Two weeks before
 - [ ] Create the edition (*Editions → New edition*; clone last year to copy stations and inventory).
 - [ ] Check stations, then rotate PINs. Give **role PINs** only to the Medical and Counselling leads.
 - [ ] Enter inventory with opening quantities and low-stock thresholds.
-- [ ] Generate cards: expected turnout + 30%. Print the PDF **at 100% scale**, test-scan one printed card with a phone, then print and cut the rest.
+- [ ] Set up the printer for each registration phone and print a test QR slip, then scan it from another station's phone.
+- [ ] Optional backup: generate pre-printed cards (about 20% of expected turnout). Print the PDF **at 100% scale** and test-scan one card.
 - [ ] Print station posters (*Stations → Station posters*). They show the join QR and PIN.
 - [ ] Print one quick guide per station (*Stations → Quick guides*) and tape it to each table.
 - [ ] Review the consent script (*Settings*).
@@ -133,7 +145,7 @@ A Lead PIN entered at join ("I'm the Station Lead") makes that person a Station 
 - Records sync automatically when any network returns. To force it, the volunteer opens **Me → Sync now**.
 - If a pill shows **Sync error**, open **Me** to see what failed. Most errors are a card used on two phones (the person is kept; give them a new card) or a closed edition. Show it to the coordinator before discarding anything.
 - Volunteers should **not** tap "Leave station" while records are pending. The app warns them.
-- If cards run out, Registration taps **No cards left? Create a code** and writes the code (e.g. `GO26-R3-017`) on a wristband or paper.
+- If the printer stops, Registration can still save the person. Write the code shown on screen (e.g. `GO26-R3-017`) on paper, or use a pre-printed card. Stations can also find people with **Search**. To reprint later, open the person's profile and tap **⋮ → Print QR slip again**.
 
 ### Closing the edition
 1. Ask all volunteers to connect and tap **Me → Sync now**.

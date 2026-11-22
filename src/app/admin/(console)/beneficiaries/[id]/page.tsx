@@ -1,7 +1,7 @@
 "use client";
 import { use, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Lock, ShieldAlert } from "lucide-react";
+import { Check, Lock, ShieldAlert } from "lucide-react";
 import { adminClient } from "@/lib/supabase/browser";
 import { useEditionCtx, atLeast } from "@/components/admin/edition-context";
 import { PageHeader, LoadingBlock, ErrorBlock } from "@/components/admin/ui";
@@ -12,6 +12,8 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { toast } from "@/components/ui/toast";
 import { ageLabel } from "@/components/station/bits";
 import { formatDateTime, formatTime, errorMessage } from "@/lib/utils";
+
+const NEED_LABEL: Record<string, string> = { pending: "waiting", referred: "referred, waiting", served: "done", declined: "not available" };
 
 export default function BeneficiaryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -29,15 +31,17 @@ export default function BeneficiaryPage({ params }: { params: Promise<{ id: stri
       const { data: visits } = await sb.from("visits").select("*").eq("beneficiary_id", id).order("registered_at", { ascending: false });
       const visitIds = (visits ?? []).map((v) => v.id);
       const { data: records } = visitIds.length ? await sb.from("service_records").select("id, visit_id, station_id, summary, served_by_name, served_at, has_confidential, voided_at").in("visit_id", visitIds).order("served_at") : { data: [] };
+      const { data: needs } = visitIds.length ? await sb.from("visit_needs").select("visit_id, station_id, state").in("visit_id", visitIds) : { data: [] };
       const { data: stations } = await sb.from("stations_public").select("id, name, kind").in("edition_id", (visits ?? []).map((v) => v.edition_id));
-      return { b, visits: visits ?? [], records: records ?? [], stations: stations ?? [] };
+      return { b, visits: visits ?? [], records: records ?? [], needs: needs ?? [], stations: stations ?? [] };
     },
+    refetchInterval: 10_000,
   });
 
   if (q.isLoading) return <LoadingBlock />;
   if (q.error) return <ErrorBlock error={q.error} />;
   if (!q.data) return <AlertBanner tone="info">Person not found (or merged into another record).</AlertBanner>;
-  const { b, visits, records, stations } = q.data;
+  const { b, visits, records, needs, stations } = q.data;
   const st = (sid: string) => stations.find((s) => s.id === sid);
 
   const loadConfidential = async (visitId: string) => {
@@ -67,6 +71,16 @@ export default function BeneficiaryPage({ params }: { params: Promise<{ id: stri
               {v.consent_followup_at ? <Badge className="bg-leaf-50 text-leaf-700">Follow-up consent</Badge> : <Badge className="bg-neutral-50 text-neutral-700">No follow-up consent</Badge>}
             </div>
             <p className="text-caption text-neutral-500">Registered {formatDateTime(v.registered_at)} by {v.registered_by_name ?? "—"} · consent v{v.consent_version}</p>
+            {needs.some((n) => n.visit_id === v.id) && (
+              <div className="flex flex-wrap items-center gap-2" aria-label="Needs">
+                <span className="text-caption text-neutral-500">Needs</span>
+                {needs.filter((n) => n.visit_id === v.id).map((n) => (
+                  <Badge key={n.station_id} className={n.state === "served" ? "bg-leaf-50 text-leaf-700" : n.state === "declined" ? "bg-neutral-50 text-neutral-500 line-through" : "bg-warning-bg text-warning"}>
+                    {n.state === "served" ? <Check className="size-3.5" aria-hidden /> : null}{st(n.station_id)?.name ?? "Station"} · {NEED_LABEL[n.state] ?? n.state}
+                  </Badge>
+                ))}
+              </div>
+            )}
             <ol className="divide-y divide-neutral-50">
               {recs.map((r) => (
                 <li key={r.id} className="flex flex-wrap items-center gap-2 py-2 text-body">

@@ -157,7 +157,7 @@ export default function VolunteerApp() {
 
       {scanOpen && (
         <Scanner
-          title={scanOpen.purpose === "register" ? "Scan blank card" : "Scan card"}
+          title={scanOpen.purpose === "register" ? "Scan pre-printed card" : "Scan QR code"}
           onClose={() => setScanOpen(null)}
           onTypeCode={() => { const p = scanOpen.purpose; setScanOpen(null); setKeypadOpen({ purpose: p }); }}
           onCode={(c) => void lookupCode(c, scanOpen.purpose)}

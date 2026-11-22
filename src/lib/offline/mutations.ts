@@ -95,13 +95,46 @@ export async function registerPerson(input: {
   return visit;
 }
 
-/** Codes for when pre-printed cards run out (FR-2.5): reserved per device while online. */
+/**
+ * Codes for the QR slip printed at registration (and the fallback when
+ * pre-printed cards run out). Each phone holds a block of up to 999 codes
+ * reserved while online, and fetches the next block in the background when
+ * fewer than 150 are left, so a desk can keep printing offline.
+ */
 export async function nextOnTheSpotCode(): Promise<string | null> {
-  const block = await getMeta<CodeBlock>("code_block");
-  if (!block || block.next_value > block.range_end) return null;
+  let block = await getMeta<CodeBlock>("code_block");
+  if (!block || block.next_value > block.range_end) {
+    const spare = await getMeta<CodeBlock>("code_block_next");
+    if (!spare) { void refillCodeBlock(); return null; }
+    block = spare;
+    await setMeta("code_block_next", null);
+  }
   const code = `${block.prefix}-${String(block.next_value).padStart(3, "0")}`;
   await setMeta("code_block", { ...block, next_value: block.next_value + 1 });
+  if (block.range_end - block.next_value < 150) void refillCodeBlock();
   return code;
+}
+
+/** How many printable codes this phone can still hand out offline. */
+export async function codesLeft(): Promise<number> {
+  const left = (b: CodeBlock | null | undefined) => (b ? Math.max(0, b.range_end - b.next_value + 1) : 0);
+  return left(await getMeta<CodeBlock>("code_block")) + left(await getMeta<CodeBlock>("code_block_next"));
+}
+
+let refilling = false;
+async function refillCodeBlock() {
+  if (refilling || typeof navigator === "undefined" || navigator.onLine === false) return;
+  if (await getMeta<CodeBlock>("code_block_next")) return;
+  refilling = true;
+  try {
+    const { volunteerClient } = await import("@/lib/supabase/volunteer");
+    const { data } = await (await volunteerClient()).rpc("reserve_code_block", { p_size: 999, p_new: true });
+    if (data) await setMeta("code_block_next", data);
+  } catch {
+    // Offline or capped: the desk can still use pre-printed cards or search by name.
+  } finally {
+    refilling = false;
+  }
 }
 
 // ---------------------------------------------------------------------------

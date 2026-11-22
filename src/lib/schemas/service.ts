@@ -3,6 +3,8 @@ import { z } from "zod";
 const id = z.guid();
 const notes = z.string().max(2000).optional();
 const refer = z.array(id).max(6).optional();
+/** Ticked outcomes from the quick checklist (e.g. "Prayed for"). */
+const outcomes = z.array(z.string().max(60)).max(12).optional();
 
 export const PRAYER_FOCUS = ["Health", "Family", "Finances", "Job", "Spiritual growth", "Deliverance", "Other"] as const;
 export const COUNSELLING_CATEGORIES = ["Marriage/Family", "Grief", "Addiction", "Mental wellbeing", "Career/Finance", "Spiritual", "Youth", "Other"] as const;
@@ -15,23 +17,26 @@ export const prayerDataSchema = z.object({
   decision: z.enum(["none", "salvation", "rededication"]),
   wants_followup: z.boolean(),
   join_fellowship: z.boolean(),
+  outcomes,
   notes,
   refer_to_station_ids: refer,
 });
 export type PrayerData = z.infer<typeof prayerDataSchema>;
 
 export const foodDataSchema = z.object({
-  items: z.array(z.object({ item_id: id, qty: z.number().int().min(1).max(20) })).min(1),
+  items: z.array(z.object({ item_id: id, qty: z.number().int().min(1).max(20) })),
   household_served: z.number().int().min(1).max(50).optional(),
   override_by: z.string().max(80).optional(),
+  outcomes,
   notes,
   refer_to_station_ids: refer,
 });
 export type FoodData = z.infer<typeof foodDataSchema>;
 
 export const clothingDataSchema = z.object({
-  items: z.array(z.object({ item_id: id, size: z.string().max(20).optional(), qty: z.number().int().min(1).max(20) })).min(1),
+  items: z.array(z.object({ item_id: id, size: z.string().max(20).optional(), qty: z.number().int().min(1).max(20) })),
   for: z.enum(["self", "child", "other"]),
+  outcomes,
   notes,
   refer_to_station_ids: refer,
 });
@@ -42,6 +47,7 @@ export const counsellingDataSchema = z.object({
   followup_needed: z.boolean(),
   risk: z.enum(["none", "pastoral", "urgent"]),
   refer_medical: z.boolean(),
+  outcomes,
   refer_to_station_ids: refer,
 });
 export type CounsellingData = z.infer<typeof counsellingDataSchema>;
@@ -74,11 +80,12 @@ export const medicalPayloadSchema = z.object({
   referral: z.object({ facility: z.string().max(120), reason: z.string().max(500), urgency: z.enum(["routine", "urgent"]) }).optional(),
   allergies: z.string().max(300).optional(),
   designation: z.enum(DESIGNATIONS),
+  outcomes,
   notes,
 });
 export type MedicalPayload = z.infer<typeof medicalPayloadSchema>;
 
-export const genericDataSchema = z.object({ notes, refer_to_station_ids: refer }).catchall(z.unknown());
+export const genericDataSchema = z.object({ notes, outcomes, refer_to_station_ids: refer }).catchall(z.unknown());
 
 export const serviceDataSchemaByKind = {
   prayer: prayerDataSchema,

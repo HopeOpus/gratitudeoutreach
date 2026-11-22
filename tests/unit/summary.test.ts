@@ -20,7 +20,8 @@ describe("timeline summaries never leak confidential content", () => {
 });
 
 describe("shared zod schemas", () => {
-  it("rejects a food record with no items", () => expect(foodDataSchema.safeParse({ items: [] }).success).toBe(false));
+  it("accepts a food tick with no stock items set up", () => expect(foodDataSchema.safeParse({ items: [], outcomes: ["food"] }).success).toBe(true));
+  it("rejects a food item with zero quantity", () => expect(foodDataSchema.safeParse({ items: [{ item_id: "0190a0b0-0000-7000-8000-000000000001", qty: 0 }] }).success).toBe(false));
   it("rejects an unknown prayer decision", () => expect(prayerDataSchema.safeParse({ focus: [], decision: "maybe", wants_followup: false, join_fellowship: false }).success).toBe(false));
   it("counselling data has no notes field (notes are confidential payload only)", () => {
     const parsed = counsellingDataSchema.parse({ category: "Grief", followup_needed: true, risk: "urgent", refer_medical: false, notes: "x" } as never);
