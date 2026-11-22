@@ -1,6 +1,8 @@
 -- Server logic: triggers and RPCs (BuildPlan Phase 1/5 acceptance).
 begin;
 create extension if not exists pgtap with schema extensions;
+-- Counselling is switched off by default (part of Prayer & Counselling); these tests exercise the optional private-notes station.
+update public.stations set enabled = true where kind = 'counselling';
 
 create schema t;
 grant usage on schema t to authenticated;

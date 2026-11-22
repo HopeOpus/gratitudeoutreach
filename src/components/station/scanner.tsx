@@ -1,7 +1,7 @@
 "use client";
 // Lazy-loaded (next/dynamic) so the camera code stays out of the main /s bundle.
 import { useEffect, useRef, useState } from "react";
-import { X, Keyboard, CameraOff } from "lucide-react";
+import { X, Keyboard, CameraOff, Search } from "lucide-react";
 import { parseCardPayload } from "@/lib/cards";
 import { Button } from "@/components/ui/button";
 import { vibrate } from "@/lib/utils";
@@ -11,8 +11,8 @@ declare global {
   interface Window { BarcodeDetector?: new (opts: { formats: string[] }) => Detector }
 }
 
-export default function Scanner({ onCode, onClose, onTypeCode, title = "Scan card", accept = parseCardPayload, rejectHint = "That QR code is not from Gratitude Outreach." }: {
-  onCode: (code: string) => void; onClose: () => void; onTypeCode: () => void; title?: string;
+export default function Scanner({ onCode, onClose, onTypeCode, onSearch, title = "Scan card", accept = parseCardPayload, rejectHint = "That QR code is not from Gratitude Outreach." }: {
+  onCode: (code: string) => void; onClose: () => void; onTypeCode: () => void; onSearch?: () => void; title?: string;
   accept?: (raw: string) => string | null; rejectHint?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -95,6 +95,7 @@ export default function Scanner({ onCode, onClose, onTypeCode, title = "Scan car
               {error === "denied" ? "Allow camera access in your browser settings, or type the card code instead." : "Type the card code instead."}
             </p>
             <Button variant="dark" size="lg" onClick={onTypeCode}><Keyboard className="size-5" /> Type card code</Button>
+            {onSearch && <Button variant="outlineDark" size="lg" onClick={onSearch}><Search className="size-5" /> Search by name</Button>}
           </div>
         ) : (
           <>
@@ -107,8 +108,9 @@ export default function Scanner({ onCode, onClose, onTypeCode, title = "Scan car
         )}
       </div>
       {!error && (
-        <div className="p-4 safe-bottom">
-          <Button variant="outlineDark" size="lg" block onClick={onTypeCode}><Keyboard className="size-5" /> Type card code</Button>
+        <div className="flex gap-2 p-4 safe-bottom">
+          <Button variant="outlineDark" size="lg" className="flex-1" onClick={onTypeCode}><Keyboard className="size-5" /> Type number</Button>
+          {onSearch && <Button variant="outlineDark" size="lg" className="flex-1" onClick={onSearch}><Search className="size-5" /> Search by name</Button>}
         </div>
       )}
     </div>

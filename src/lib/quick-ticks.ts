@@ -21,6 +21,7 @@ export type QuickPayload = {
 
 const PRAYER: Tick[] = [
   { id: "prayed", label: "Has been prayed for", short: "Prayed for", defaultOn: true },
+  { id: "counselled", label: "Has been counselled", short: "Counselled" },
   { id: "healing", label: "Received healing", short: "Healing" },
   { id: "salvation", label: "Gave their life to Christ", short: "Salvation" },
   { id: "rededication", label: "Rededicated their life", short: "Rededication" },
@@ -29,7 +30,6 @@ const PRAYER: Tick[] = [
 
 const MEDICAL: Tick[] = [
   { id: "seen", label: "Seen by the medical team", short: "Seen", defaultOn: true },
-  { id: "medication", label: "Given medication", short: "Medication" },
   { id: "referred", label: "Referred to a hospital or clinic", short: "Referred" },
 ];
 
@@ -37,6 +37,8 @@ const COUNSELLING: Tick[] = [
   { id: "counselled", label: "Has been counselled", short: "Counselled", defaultOn: true },
   { id: "followup", label: "Needs a follow-up", short: "Follow-up" },
 ];
+
+const PHARMACY: Tick[] = [{ id: "given", label: "Medicine given", short: "Medicine given", defaultOn: true }];
 
 const GENERIC: Tick[] = [{ id: "served", label: "Has been served", short: "Served", defaultOn: true }];
 
@@ -52,6 +54,7 @@ export function ticksFor(kind: StationKind): Tick[] {
   switch (kind) {
     case "prayer": return PRAYER;
     case "medical": return MEDICAL;
+    case "pharmacy": return PHARMACY;
     case "counselling": return COUNSELLING;
     case "food": return FOOD;
     case "clothing": return CLOTHING;
@@ -67,8 +70,20 @@ function truncate(s: string, n = 140) {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s;
 }
 
+/** One medicine on a prescription. `name` is kept so Pharmacy can read it even if stock is renamed. */
+export type RxLine = { item_id: string; name: string; qty: number; dosage?: string };
+
+export type QuickExtra = {
+  /** Medical: medicines prescribed. A non-empty list also refers the person to Pharmacy. */
+  prescription?: RxLine[];
+  pharmacyStationId?: string | null;
+  /** Pharmacy: what was handed over, and the Medical record it fills. */
+  dispensed?: { item_id: string; qty: number }[];
+  prescriptionId?: string | null;
+};
+
 /** Turns ticked ids (and optional stock items given) into a service record. `done` must not be empty. */
-export function buildQuickPayload(kind: StationKind, done: string[], items: LocalInventory[] = [], pickedItemIds: string[] = []): QuickPayload {
+export function buildQuickPayload(kind: StationKind, done: string[], items: LocalInventory[] = [], pickedItemIds: string[] = [], extra: QuickExtra = {}): QuickPayload {
   const ticks = ticksFor(kind).filter((t) => done.includes(t.id));
   if (!ticks.length) throw new Error("Tick at least one thing that was done.");
   const has = (id: string) => done.includes(id);
@@ -84,10 +99,20 @@ export function buildQuickPayload(kind: StationKind, done: string[], items: Loca
     }
     case "medical": {
       const referred = has("referred");
+      const rx = (extra.prescription ?? []).filter((l) => l.qty > 0);
+      const toPharmacy = rx.length > 0 && extra.pharmacyStationId ? [extra.pharmacyStationId] : [];
       return {
+        // The timeline never names medicines (DataModel §3); the prescription lives in the confidential record.
         summary: medicalSummary({ referred }),
-        data: { tests: [], referred, items: [], ...(referred ? { referral_urgency: "routine" } : {}) },
-        confidential: { kind: "medical", payload: { vitals: {}, complaint: [], dispensed: [], designation: "Other", outcomes } },
+        data: { tests: [], referred, items: [], ...(referred ? { referral_urgency: "routine" } : {}), ...(toPharmacy.length ? { refer_to_station_ids: toPharmacy } : {}) },
+        confidential: { kind: "medical", payload: { vitals: {}, complaint: [], dispensed: [], designation: "Other", outcomes, ...(rx.length ? { prescription: rx } : {}) } },
+      };
+    }
+    case "pharmacy": {
+      const given = (extra.dispensed ?? []).filter((l) => l.qty > 0);
+      return {
+        summary: "Medicine given",
+        data: { items: given, outcomes, ...(extra.prescriptionId ? { prescription_id: extra.prescriptionId } : {}) },
       };
     }
     case "counselling":

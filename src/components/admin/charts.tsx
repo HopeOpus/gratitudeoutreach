@@ -3,7 +3,7 @@
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Legend } from "recharts";
 import type { DashboardStats } from "@/lib/dashboard";
 
-const COLORS: Record<string, string> = { prayer: "#07999B", counselling: "#4B3F72", medical: "#B42318", food: "#188B12", clothing: "#42A93D", checkout: "#3F4741", custom: "#3F4741" };
+const COLORS: Record<string, string> = { prayer: "#07999B", counselling: "#4B3F72", medical: "#B42318", pharmacy: "#7A271A", food: "#188B12", clothing: "#42A93D", checkout: "#3F4741", custom: "#3F4741" };
 const hourLabel = (h: string) => h.slice(11, 16);
 
 export function HourlyChart({ hourly }: { hourly: DashboardStats["hourly"] }) {

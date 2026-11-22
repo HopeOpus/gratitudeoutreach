@@ -160,11 +160,15 @@ export default function VolunteerApp() {
           title={scanOpen.purpose === "register" ? "Scan pre-printed card" : "Scan QR code"}
           onClose={() => setScanOpen(null)}
           onTypeCode={() => { const p = scanOpen.purpose; setScanOpen(null); setKeypadOpen({ purpose: p }); }}
+          onSearch={scanOpen.purpose === "lookup" ? () => { setScanOpen(null); navigate("/s/search"); } : undefined}
           onCode={(c) => void lookupCode(c, scanOpen.purpose)}
         />
       )}
-      <BottomSheet open={!!keypadOpen} onOpenChange={(o) => !o && setKeypadOpen(null)} title="Type card code">
+      <BottomSheet open={!!keypadOpen} onOpenChange={(o) => !o && setKeypadOpen(null)} title="Type the number">
         <CodeKeypad prefix={session.edition.code_prefix} onSubmit={(c) => void lookupCode(c, keypadOpen?.purpose ?? "lookup")} submitLabel={keypadOpen?.purpose === "register" ? "Use" : "Open"} />
+        {keypadOpen?.purpose !== "register" && (
+          <Button variant="ghost" size="lg" block className="mt-2" onClick={() => { setKeypadOpen(null); navigate("/s/search"); }}>No number? Search by name</Button>
+        )}
       </BottomSheet>
       <BottomSheet open={!!notFound} onOpenChange={(o) => !o && setNotFound(null)} title="Not registered yet"
         description={`Card ${notFound ?? ""} is not linked to anyone. Please send the person to the Registration desk.`}>

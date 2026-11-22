@@ -12,7 +12,7 @@ test("offline registration saves locally, then syncs once with no duplicates", a
   await page.getByRole("button", { name: /New person/ }).click();
   await page.getByRole("button", { name: /Use a pre-printed card/ }).click();
   await expect(page.getByText("Scan pre-printed card")).toBeVisible();
-  await page.getByRole("button", { name: "Type card code" }).last().click();
+  await page.getByRole("button", { name: /^Type (card code|number)$/ }).last().click();
   for (const d of code.split("-")[1]!) await page.getByRole("button", { name: d, exact: true }).click();
   await page.getByRole("button", { name: /^Use/ }).click();
 
@@ -43,7 +43,7 @@ test("scanning an assigned card at Registration shows who it belongs to", async 
   await joinStation(page, "111111", "Tobi");
   await page.getByRole("button", { name: /New person/ }).click();
   await page.getByRole("button", { name: /Use a pre-printed card/ }).click();
-  await page.getByRole("button", { name: "Type card code" }).last().click();
+  await page.getByRole("button", { name: /^Type (card code|number)$/ }).last().click();
   for (const d of "0001") await page.getByRole("button", { name: d, exact: true }).click();
   await page.getByRole("button", { name: /^Use/ }).click();
   await expect(page.getByRole("heading", { name: /Card already belongs to/ })).toBeVisible();
@@ -71,7 +71,7 @@ test("registration prints a QR slip offline; another station scans it and ticks 
   // A code was generated on the phone, shown as a QR, ready to print
   await expect(reg.getByText(/is registered/)).toBeVisible();
   const code = (await reg.getByTestId("new-code").textContent())!.trim();
-  expect(code).toMatch(/^TR26-R\d+-\d{3}$/);
+  expect(code).toMatch(/^TR26-\d{4}$/);
   await expect(reg.getByRole("img", { name: `QR code for ${code}` }).first()).toBeVisible();
   await reg.evaluate(() => { window.print = () => { document.body.dataset.printed = "1"; }; });
   await reg.getByRole("button", { name: "Print QR slip" }).click();
@@ -95,7 +95,7 @@ test("registration prints a QR slip offline; another station scans it and ticks 
   await ticks.getByLabel("Received healing").check();
   await ticks.getByLabel("Gave their life to Christ").check();
   await pray.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(pray.getByText(/Saved · Prayer for/)).toBeVisible();
+  await expect(pray.getByText(/Saved · Prayer & Counselling for/)).toBeVisible();
   await waitSynced(pray);
 
   const recs = await rest<{ summary: string; data: { decision: string } }[]>(`service_records?visit_id=eq.${visits[0]!.id}&select=summary,data`);

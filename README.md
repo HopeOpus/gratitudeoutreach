@@ -67,11 +67,12 @@ pnpm icons                # regenerate PWA icons + PDF logos from public/brand
 | Station | Station PIN | Role PIN (confidential) | Lead PIN |
 |---|---|---|---|
 | Registration | `111111` | — | `999999` |
-| Prayer | `222222` | — | `999999` |
-| Counselling | `333333` | `303030` | `999999` |
+| Prayer & Counselling | `222222` | — | `999999` |
 | Medical | `444444` | `404040` | `999999` |
+| Pharmacy | `777777` | `707070` | `999999` |
 | Food | `555555` | — | `999999` |
 | Clothing | `666666` | — | `999999` |
+| Counselling (private notes, **off** by default) | `333333` | `303030` | `999999` |
 
 A Lead PIN entered at join ("I'm the Station Lead") makes that person a Station Lead. It also approves a second food collection.
 
@@ -112,8 +113,10 @@ To set up a new environment the same way:
 ## How the day works
 
 1. **Volunteers log in to their station.** Each one scans the station poster (or types the station PIN) and enters their name. No accounts or passwords.
-2. **Registration takes the person's details and needs** (Food, Medical, Counselling, Prayer, Clothing...), reads the consent aloud and taps **Save registration**. The phone gives them a code and shows a QR. Tap **Print QR slip** and hand the slip over.
-3. **Every other stand scans the slip.** The person's name, age and needs show, with a short checklist for that stand (for example *Has been prayed for*, *Received healing*, *Gave their life to Christ*, or *Has received food*). Tick what was done and tap **Save**. **More details** opens the full form when needed.
+2. **Registration takes the person's details and needs** (Prayer & Counselling, Medical, Food, Clothing...), reads the consent aloud and taps **Save registration**. The phone gives them the next number (for example `GO26-0412`, the same sequence as the pre-printed cards) and shows a QR. Tap **Print QR slip** and hand the slip over.
+3. **Every other stand scans the slip**, types just the number (the `GO26-` part is fixed), or taps **Search by name** if the person has lost it. The person's name, age and needs show, with a short checklist for that stand (for example *Has been prayed for*, *Received healing*, *Gave their life to Christ*, or *Has received food*). Tick what was done and tap **Save**. **More details** opens the full form when needed.
+   - **Medical** ticks *Seen*, and can add a **prescription** from the medicines in the inventory, with quantity and dosage. Saving sends the person to **Pharmacy**.
+   - **Pharmacy** scans them and sees the prescription (who prescribed it, when, and each medicine with its dosage). Untick anything that couldn't be given, then tap **Save**. Stock goes down for what was given. Prescriptions stay private: only Medical and Pharmacy see them, and the shared timeline only says "Medical check" and "Medicine given".
 4. **The Super Admin watches it live** on the dashboard: counts per station, plus a *Live activity* feed of each registration and each tick, with names. Each name links to that person's page, which shows their needs as waiting or done.
 
 All of this works offline and syncs when the network comes back.

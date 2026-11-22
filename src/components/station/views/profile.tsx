@@ -7,6 +7,8 @@ import { setNeed, patchBeneficiary, replaceCard, checkOut, recordService, undoSe
 import { ticksFor, defaultTicks, buildQuickPayload, itemChoicesFor } from "@/lib/quick-ticks";
 import type { StationKind } from "@/lib/stations";
 import { QrSlip, printSlip } from "../qr-slip";
+import { useDrugs, PrescriptionEditor, PrescriptionCard, pendingPrescription } from "../rx";
+import type { RxLine } from "@/lib/quick-ticks";
 import { volunteerClient } from "@/lib/supabase/volunteer";
 import { navigate, back } from "../nav";
 import { useScan } from "../scan-context";
@@ -41,6 +43,9 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
   const [ticked, setTicked] = useState<string[] | null>(null);
   const [pickedItems, setPickedItems] = useState<string[]>([]);
   const [savingTicks, setSavingTicks] = useState(false);
+  const [rxLines, setRxLines] = useState<RxLine[]>([]);
+  const [givenIds, setGivenIds] = useState<string[] | null>(null);
+  const drugs = useDrugs(stations);
 
   // Highlight records that arrive while the profile is open (FR-5.5).
   useEffect(() => {
@@ -73,16 +78,30 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
   const myConfidential = isConfidentialKind(myStation.kind) ? confidential.filter((c) => c.kind === myStation.kind) : [];
   const lastVitals = myStation.kind === "medical" ? myConfidential.map((c) => c.payload.vitals as Record<string, number> | undefined).find(Boolean) : undefined;
 
+  const isMed = myStation.kind === "medical";
+  const isPharm = myStation.kind === "pharmacy";
+  const pharmacyIds = new Set(stations.filter((s) => s.kind === "pharmacy").map((s) => s.id));
+  const pendingRx = isPharm ? pendingPrescription(confidential, records, pharmacyIds) : null;
+  const drugStock = new Map((drugs ?? []).map((d) => [d.id, d]));
+  const currentGiven = givenIds ?? (pendingRx ? pendingRx.lines.filter((l) => (drugStock.get(l.item_id)?.remaining ?? 1) > 0).map((l) => l.item_id) : []);
+  // Pharmacy can fill a new prescription even after an earlier visit to the counter.
+  const showTicks = !isReg && !readOnly && inventory !== undefined && (!lastMine || !!pendingRx);
+
   const quickTicks = ticksFor(myStation.kind as StationKind);
   const currentTicks = ticked ?? defaultTicks(myStation.kind as StationKind);
   const itemChoices = itemChoicesFor(myStation.kind as StationKind, inventory ?? []);
   const saveTicks = async () => {
     setSavingTicks(true);
     try {
-      const p = buildQuickPayload(myStation.kind as StationKind, currentTicks, inventory ?? [], pickedItems);
+      const extra = isMed
+        ? { prescription: rxLines, pharmacyStationId: stations.find((st) => st.kind === "pharmacy" && st.enabled)?.id ?? null }
+        : isPharm
+          ? { dispensed: (pendingRx?.lines ?? []).filter((l) => currentGiven.includes(l.item_id)).map((l) => ({ item_id: l.item_id, qty: l.qty })), prescriptionId: pendingRx?.recordId ?? null }
+          : {};
+      const p = buildQuickPayload(myStation.kind as StationKind, currentTicks, inventory ?? [], pickedItems, extra);
       const id = await recordService({ visit, ...p });
       vibrate(30);
-      toast.saved(`Saved · ${myStation.name} for ${name}`, () => {
+      toast.saved(isMed && rxLines.length ? `Saved · ${name} sent to Pharmacy` : `Saved · ${myStation.name} for ${name}`, () => {
         void undoService(id).then(() => toast.info("Undone"), (e) => toast.error(errorMessage(e)));
       });
       navigate("/s", { replace: true });
@@ -137,7 +156,7 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
         </div>
       </section>
 
-      {!isReg && !readOnly && !lastMine && inventory !== undefined && (
+      {showTicks && (
         <section className="mx-4 mb-4 rounded-lg border-2 border-leaf bg-white p-4" aria-labelledby="tick-h">
           <h3 id="tick-h" className="text-h3 font-medium text-forest">Tick what was done at {myStation.name}</h3>
           <div className="mt-3 flex flex-col gap-2">
@@ -159,12 +178,19 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
               </ChipGroup>
             </div>
           )}
-          <button type="button" onClick={() => navigate(`/s/p/${visit.id}/serve`)} className="mt-3 inline-flex min-h-12 items-center gap-1 text-label font-medium text-leaf-700 underline cursor-pointer">
+          {isMed && drugs && <PrescriptionEditor drugs={drugs} lines={rxLines} onChange={setRxLines} />}
+          {isPharm && (pendingRx ? (
+            <PrescriptionCard rx={pendingRx} stock={drugStock} given={currentGiven}
+              onToggle={(id, on) => setGivenIds(on ? [...currentGiven, id] : currentGiven.filter((x) => x !== id))} />
+          ) : (
+            <p className="mt-3 rounded-md bg-neutral-50 p-3 text-body text-neutral-700">No prescription from Medical for {name} yet. If they were sent here, ask them to wait a moment for it to sync.</p>
+          ))}
+          {!isPharm && <button type="button" onClick={() => navigate(`/s/p/${visit.id}/serve`)} className="mt-3 inline-flex min-h-12 items-center gap-1 text-label font-medium text-leaf-700 underline cursor-pointer">
             <ListPlus className="size-4" aria-hidden /> More details (full form)
-          </button>
+          </button>}
         </section>
       )}
-      {!isReg && lastMine && (
+      {!isReg && lastMine && !pendingRx && (
         <section className="mx-4 mb-4 flex items-start gap-3 rounded-lg bg-leaf-50 p-4" aria-label={`Done at ${myStation.name}`}>
           <CheckCircle2 className="mt-0.5 size-6 shrink-0 text-leaf-600" aria-hidden />
           <div>
@@ -205,7 +231,7 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
           {isReg ? (
             <Button size="lg" block onClick={() => setSheet("needs")}><ClipboardPen className="size-5" /> Update needs</Button>
           ) : (
-            lastMine ? (
+            lastMine && !pendingRx ? (
               <Button size="lg" block variant="secondary" onClick={startServe}>Record again</Button>
             ) : (
               <Button size="lg" block loading={savingTicks} disabled={currentTicks.length === 0 || inventory === undefined} onClick={() => void saveTicks()}>

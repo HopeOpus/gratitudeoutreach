@@ -1,3 +1,4 @@
+import { isConfidentialKind } from "@/lib/stations";
 import { NextResponse } from "next/server";
 import { requireAdmin, bad } from "@/lib/server/api-auth";
 import { editionSchema } from "@/lib/schemas/join";
@@ -25,7 +26,7 @@ async function rotateAllPins(sb: Awaited<ReturnType<typeof import("@/lib/supabas
   const svc = serviceClient();
   for (const s of stations ?? []) {
     const join = randomPin();
-    const role = s.kind === "medical" || s.kind === "counselling" ? randomPin() : null;
+    const role = isConfidentialKind(s.kind) ? randomPin() : null;
     const lead = randomPin();
     const { error } = await sb.rpc("set_station_pins", { p_station: s.id, p_join_pin: join, p_role_pin: role ?? undefined, p_lead_pin: lead });
     if (error) continue; // rare PIN collision: coordinator can rotate again

@@ -67,6 +67,11 @@ export const medicalDataSchema = z.object({
 });
 export type MedicalData = z.infer<typeof medicalDataSchema>;
 
+/** A medicine Medical prescribes; Pharmacy dispenses from it. Confidential (medical payload only). */
+export const rxLineSchema = z.object({
+  item_id: id, name: z.string().min(1).max(120), qty: z.number().int().min(1).max(100), dosage: z.string().max(120).optional(),
+});
+
 const vital = (min: number, max: number) => z.number().min(min).max(max).optional();
 export const medicalPayloadSchema = z.object({
   vitals: z.object({
@@ -81,9 +86,19 @@ export const medicalPayloadSchema = z.object({
   allergies: z.string().max(300).optional(),
   designation: z.enum(DESIGNATIONS),
   outcomes,
+  prescription: z.array(rxLineSchema).max(20).optional(),
   notes,
 });
 export type MedicalPayload = z.infer<typeof medicalPayloadSchema>;
+
+export const pharmacyDataSchema = z.object({
+  items: z.array(z.object({ item_id: id, qty: z.number().int().min(1).max(100) })),
+  prescription_id: id.optional(),
+  outcomes,
+  notes,
+  refer_to_station_ids: refer,
+});
+export type PharmacyData = z.infer<typeof pharmacyDataSchema>;
 
 export const genericDataSchema = z.object({ notes, outcomes, refer_to_station_ids: refer }).catchall(z.unknown());
 
@@ -93,6 +108,7 @@ export const serviceDataSchemaByKind = {
   clothing: clothingDataSchema,
   counselling: counsellingDataSchema,
   medical: medicalDataSchema,
+  pharmacy: pharmacyDataSchema,
 } as const;
 
 export const serviceRecordSchema = z.object({

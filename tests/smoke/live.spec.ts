@@ -26,7 +26,7 @@ test("live: register with QR slip, tick at Prayer, see it on the admin dashboard
   await reg.getByRole("button", { name: "Save registration" }).click();
   await expect(reg.getByText(/is registered/)).toBeVisible();
   const code = (await reg.getByTestId("new-code").textContent())!.trim();
-  expect(code).toMatch(/^TR26-R\d+-\d{3}$/);
+  expect(code).toMatch(/^TR26-\d{4}$/);
   await expect(reg.getByRole("img", { name: `QR code for ${code}` }).first()).toBeVisible();
   await expect(reg.getByRole("button", { name: /Sync status: Synced/ })).toBeVisible({ timeout: 30_000 });
 
@@ -39,7 +39,7 @@ test("live: register with QR slip, tick at Prayer, see it on the admin dashboard
   await expect(ticks.getByLabel("Has been prayed for")).toBeChecked();
   await ticks.getByLabel("Received healing").check();
   await pray.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(pray.getByText(/Saved · Prayer for/)).toBeVisible();
+  await expect(pray.getByText(/Saved · Prayer & Counselling for/)).toBeVisible();
   await expect(pray.getByRole("button", { name: /Sync status: Synced/ })).toBeVisible({ timeout: 30_000 });
 
   const email = process.env.SMOKE_ADMIN_EMAIL, password = process.env.SMOKE_ADMIN_PASSWORD;

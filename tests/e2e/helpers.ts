@@ -35,7 +35,7 @@ export async function joinStation(page: Page, pin: string, name: string, opts: {
 }
 
 export async function openByCode(page: Page, code: string) {
-  await page.getByRole("button", { name: "Type card code" }).first().click();
+  await page.getByRole("button", { name: /^Type (card code|number)$/ }).first().click();
   const digits = code.split("-").pop()!;
   for (const d of digits) await page.getByRole("button", { name: d, exact: true }).click();
   await page.getByRole("button", { name: new RegExp(`^Open`) }).click();

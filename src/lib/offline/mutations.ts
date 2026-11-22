@@ -96,10 +96,11 @@ export async function registerPerson(input: {
 }
 
 /**
- * Codes for the QR slip printed at registration (and the fallback when
- * pre-printed cards run out). Each phone holds a block of up to 999 codes
- * reserved while online, and fetches the next block in the background when
- * fewer than 150 are left, so a desk can keep printing offline.
+ * Codes for the QR slip printed at registration. They share one sequence with
+ * the pre-printed cards (GO26-0001, GO26-0002 ...), so people only need the
+ * number. Each phone holds a block of 200 numbers reserved while online and
+ * fetches the next block in the background when fewer than 50 are left, so a
+ * desk can keep printing offline.
  */
 export async function nextOnTheSpotCode(): Promise<string | null> {
   let block = await getMeta<CodeBlock>("code_block");
@@ -109,9 +110,10 @@ export async function nextOnTheSpotCode(): Promise<string | null> {
     block = spare;
     await setMeta("code_block_next", null);
   }
-  const code = `${block.prefix}-${String(block.next_value).padStart(3, "0")}`;
+  // Old-style blocks (GO26-R3) keep their 3-digit suffix; plain blocks pad to 4 like the cards.
+  const code = `${block.prefix}-${String(block.next_value).padStart(/-R\d+$/.test(block.prefix) ? 3 : 4, "0")}`;
   await setMeta("code_block", { ...block, next_value: block.next_value + 1 });
-  if (block.range_end - block.next_value < 150) void refillCodeBlock();
+  if (block.range_end - block.next_value < 50) void refillCodeBlock();
   return code;
 }
 
@@ -128,7 +130,7 @@ async function refillCodeBlock() {
   refilling = true;
   try {
     const { volunteerClient } = await import("@/lib/supabase/volunteer");
-    const { data } = await (await volunteerClient()).rpc("reserve_code_block", { p_size: 999, p_new: true });
+    const { data } = await (await volunteerClient()).rpc("reserve_code_block", { p_size: 200, p_new: true });
     if (data) await setMeta("code_block_next", data);
   } catch {
     // Offline or capped: the desk can still use pre-printed cards or search by name.

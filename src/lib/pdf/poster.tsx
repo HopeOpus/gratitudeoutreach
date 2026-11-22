@@ -3,7 +3,7 @@ import { Document, Page, View, Text, Image } from "@react-pdf/renderer";
 import { registerFonts, QR, C, mm, asset } from "./common";
 
 const ACCENT: Record<string, string> = {
-  registration: C.forest, prayer: "#07999B", counselling: "#4B3F72", medical: C.danger, food: C.leaf, clothing: "#42A93D", checkout: C.n700, custom: C.n700,
+  registration: C.forest, prayer: "#07999B", counselling: "#4B3F72", medical: C.danger, pharmacy: C.danger, food: C.leaf, clothing: "#42A93D", checkout: C.n700, custom: C.n700,
 };
 
 export type PosterStation = { name: string; kind: string; pin: string | null; joinUrl: string; confidential: boolean };

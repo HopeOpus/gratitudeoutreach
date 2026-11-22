@@ -1,4 +1,4 @@
--- QR codes printed at registration: per-phone code blocks with background refill (migration 008).
+-- QR codes printed at registration: one number sequence per edition shared with pre-printed cards (migrations 008, 010).
 begin;
 create extension if not exists pgtap with schema extensions;
 
@@ -27,16 +27,24 @@ insert into t.ids values ('reg', t.new_user()), ('prayer', t.new_user());
 select t.val(t.id('reg'), $$select public.join_station('111111', 'Tobi')$$);
 select t.val(t.id('prayer'), $$select public.join_station('222222', 'Ngozi')$$);
 
-select plan(6);
+insert into t.ids values ('coord', '00000000-0000-4000-8000-00000000ad02'), ('tr', '00000000-0000-4000-8000-0000000000e1');
 
-create temp table b1 as select t.val(t.id('reg'), $$select public.reserve_code_block(999)$$) as v;
-select is((select (v->>'range_end')::int from b1), 999, 'a registration phone gets a block of 999 codes');
-select is(t.val(t.id('reg'), $$select public.reserve_code_block(999)$$)->>'id', (select v->>'id' from b1), 'asking again without p_new returns the same open block');
+select plan(8);
 
-create temp table b2 as select t.val(t.id('reg'), $$select public.reserve_code_block(999, true)$$) as v;
-select isnt((select v->>'id' from b2), (select v->>'id' from b1), 'p_new allocates a second block while the first still has codes');
-select isnt((select v->>'prefix' from b2), (select v->>'prefix' from b1), 'each block has its own prefix, so codes never collide');
-select throws_ok($$select t.val(t.id('prayer'), $q$select public.reserve_code_block(999, true)$q$)$$, '42501', null, 'only registration sessions can reserve codes');
+create temp table b1 as select t.val(t.id('reg'), $$select public.reserve_code_block(200)$$) as v;
+select is((select v->>'prefix' from b1), 'TR26', 'phone codes use the plain edition prefix (TR26-0401, not TR26-R1-001)');
+select is((select (v->>'range_start')::int from b1), 401, 'numbers continue after the 400 pre-printed cards');
+select is((select (v->>'range_end')::int - (v->>'range_start')::int + 1 from b1), 200, 'a block holds 200 numbers');
+select is(t.val(t.id('reg'), $$select public.reserve_code_block(200)$$)->>'id', (select v->>'id' from b1), 'asking again without p_new returns the same open block');
+
+create temp table b2 as select t.val(t.id('reg'), $$select public.reserve_code_block(200, true)$$) as v;
+select is((select (v->>'range_start')::int from b2), 601, 'the next block starts where the last one ended');
+
+-- Cards printed later skip every number already handed to phones
+create temp table c as select t.val(t.id('coord'), $$select public.generate_cards(t.id('tr'), 5)$$) as v;
+select is((select v->>'first' from c), 'TR26-0801', 'new pre-printed cards never reuse a phone number');
+
+select throws_ok($$select t.val(t.id('prayer'), $q$select public.reserve_code_block(200, true)$q$)$$, '42501', null, 'only registration sessions can reserve codes');
 
 select t.val(t.id('reg'), $$select public.reserve_code_block(10, true)$$) from generate_series(1, 18);
 select throws_ok($$select t.val(t.id('reg'), $q$select public.reserve_code_block(10, true)$q$)$$, '54000', null, 'a session is capped at 20 blocks');

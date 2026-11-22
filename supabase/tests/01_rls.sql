@@ -2,6 +2,8 @@
 -- service_records inserts are "own station only".
 begin;
 create extension if not exists pgtap with schema extensions;
+-- Counselling is switched off by default (part of Prayer & Counselling); these tests exercise the optional private-notes station.
+update public.stations set enabled = true where kind = 'counselling';
 
 -- ---------------------------------------------------------------------------
 -- Helpers: run SQL as a given user (role authenticated) or as anon

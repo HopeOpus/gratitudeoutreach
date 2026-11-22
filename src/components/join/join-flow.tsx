@@ -161,11 +161,11 @@ export function JoinFlow({ token: initialToken, ended }: { token?: string; ended
         {step === "role" && station && (
           <form className="flex flex-col gap-5" onSubmit={(e) => { e.preventDefault(); void finish(); }}>
             <div className="flex items-center gap-3"><ShieldCheck className="size-8 text-confidential" aria-hidden /><h1 className="text-h2 font-medium text-forest">Private information</h1></div>
-            <AlertBanner tone="confidential">You&apos;ll see private {station.kind === "medical" ? "medical" : "counselling"} notes. Keep them private. Don&apos;t share or screenshot them.</AlertBanner>
+            <AlertBanner tone="confidential">You&apos;ll see private {station.kind === "counselling" ? "counselling notes" : station.kind === "pharmacy" ? "prescriptions and medical notes" : "medical notes"}. Keep them private. Don&apos;t share or screenshot them.</AlertBanner>
             <Field label="Role PIN from your Station Lead" htmlFor="j-role" required>
               <Input id="j-role" inputMode="numeric" type="password" maxLength={6} value={rolePin} onChange={(e) => setRolePin(e.target.value.replace(/\D/g, ""))} />
             </Field>
-            {station.kind === "medical" && (
+            {(station.kind === "medical" || station.kind === "pharmacy") && (
               <Field label="Designation">
                 <Segmented label="Designation" value={designation} onChange={setDesignation} options={DESIGNATIONS.map((d) => ({ value: d, label: d }))} />
               </Field>

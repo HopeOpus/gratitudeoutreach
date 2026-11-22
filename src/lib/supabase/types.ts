@@ -769,7 +769,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "age_range": "0-12"|"13-17"|"18-35"|"36-59"|"60+","card_status": "unassigned"|"assigned"|"void","confidential_kind": "medical"|"counselling","edition_status": "draft"|"live"|"closed","flag_scope": "all"|"medical"|"counselling"|"leads","followup_status": "new"|"assigned"|"contacted"|"completed"|"unreachable","followup_type": "salvation"|"rededication"|"prayer"|"counselling"|"counselling_urgent"|"medical_referral"|"fellowship","gender": "female"|"male"|"undisclosed","need_state": "pending"|"served"|"declined"|"referred","org_role": "super_admin"|"coordinator"|"followup"|"viewer","session_role": "volunteer"|"station_lead","station_kind": "registration"|"prayer"|"counselling"|"medical"|"food"|"clothing"|"checkout"|"custom","visit_status": "active"|"checked_out"
+            "age_range": "0-12"|"13-17"|"18-35"|"36-59"|"60+","card_status": "unassigned"|"assigned"|"void","confidential_kind": "medical"|"counselling","edition_status": "draft"|"live"|"closed","flag_scope": "all"|"medical"|"counselling"|"leads","followup_status": "new"|"assigned"|"contacted"|"completed"|"unreachable","followup_type": "salvation"|"rededication"|"prayer"|"counselling"|"counselling_urgent"|"medical_referral"|"fellowship","gender": "female"|"male"|"undisclosed","need_state": "pending"|"served"|"declined"|"referred","org_role": "super_admin"|"coordinator"|"followup"|"viewer","session_role": "volunteer"|"station_lead","station_kind": "registration"|"prayer"|"counselling"|"medical"|"food"|"clothing"|"checkout"|"custom"|"pharmacy","visit_status": "active"|"checked_out"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -889,7 +889,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "age_range": ["0-12", "13-17", "18-35", "36-59", "60+"],"card_status": ["unassigned", "assigned", "void"],"confidential_kind": ["medical", "counselling"],"edition_status": ["draft", "live", "closed"],"flag_scope": ["all", "medical", "counselling", "leads"],"followup_status": ["new", "assigned", "contacted", "completed", "unreachable"],"followup_type": ["salvation", "rededication", "prayer", "counselling", "counselling_urgent", "medical_referral", "fellowship"],"gender": ["female", "male", "undisclosed"],"need_state": ["pending", "served", "declined", "referred"],"org_role": ["super_admin", "coordinator", "followup", "viewer"],"session_role": ["volunteer", "station_lead"],"station_kind": ["registration", "prayer", "counselling", "medical", "food", "clothing", "checkout", "custom"],"visit_status": ["active", "checked_out"]
+            "age_range": ["0-12", "13-17", "18-35", "36-59", "60+"],"card_status": ["unassigned", "assigned", "void"],"confidential_kind": ["medical", "counselling"],"edition_status": ["draft", "live", "closed"],"flag_scope": ["all", "medical", "counselling", "leads"],"followup_status": ["new", "assigned", "contacted", "completed", "unreachable"],"followup_type": ["salvation", "rededication", "prayer", "counselling", "counselling_urgent", "medical_referral", "fellowship"],"gender": ["female", "male", "undisclosed"],"need_state": ["pending", "served", "declined", "referred"],"org_role": ["super_admin", "coordinator", "followup", "viewer"],"session_role": ["volunteer", "station_lead"],"station_kind": ["registration", "prayer", "counselling", "medical", "food", "clothing", "checkout", "custom", "pharmacy"],"visit_status": ["active", "checked_out"]
           }
         }
 } as const

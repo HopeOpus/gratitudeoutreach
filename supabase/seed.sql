@@ -86,15 +86,17 @@ begin
   -- Training stations with documented PINs (lead PIN 999999 everywhere)
   for st in select * from (values
       ('registration', 'Registration', 'ClipboardPen', 0, '111111', null),
-      ('prayer', 'Prayer', 'HandHeart', 1, '222222', null),
-      ('counselling', 'Counselling', 'MessagesSquare', 2, '333333', '303030'),
+      ('prayer', 'Prayer & Counselling', 'HandHeart', 1, '222222', null),
+      ('counselling', 'Counselling (private notes)', 'MessagesSquare', 2, '333333', '303030'),
       ('medical', 'Medical', 'Stethoscope', 3, '444444', '404040'),
-      ('food', 'Food', 'UtensilsCrossed', 4, '555555', null),
-      ('clothing', 'Clothing', 'Shirt', 5, '666666', null)
+      ('pharmacy', 'Pharmacy', 'Pill', 4, '777777', '707070'),
+      ('food', 'Food', 'UtensilsCrossed', 5, '555555', null),
+      ('clothing', 'Clothing', 'Shirt', 6, '666666', null)
     ) as t(kind, name, icon, ord, pin, role_pin)
   loop
-    insert into public.stations (id, edition_id, kind, name, icon, sort_order, is_service, join_pin_hash, role_pin_hash, lead_pin_hash)
-    values (gen_random_uuid(), v_tr, st.kind::public.station_kind, st.name, st.icon, st.ord, st.kind <> 'registration',
+    -- Counselling is part of "Prayer & Counselling"; the private-notes station is kept but off.
+    insert into public.stations (id, edition_id, kind, name, icon, sort_order, is_service, enabled, join_pin_hash, role_pin_hash, lead_pin_hash)
+    values (gen_random_uuid(), v_tr, st.kind::public.station_kind, st.name, st.icon, st.ord, st.kind <> 'registration', st.kind <> 'counselling',
       app.hash_pin(st.pin), case when st.role_pin is not null then app.hash_pin(st.role_pin) end, app.hash_pin('999999'))
     returning jsonb_build_object(st.kind, id) || v_station into v_station;
     insert into public.station_secrets (station_id, join_pin_enc, role_pin_enc, lead_pin_enc)
@@ -104,7 +106,7 @@ begin
     insert into public.volunteer_sessions (id, user_id, edition_id, station_id, role, display_name, expires_at, revoked_at, last_seen_at)
     values (gen_random_uuid(), v_seed_user, v_tr, (v_station->>st.kind)::uuid, 'volunteer',
       case st.kind when 'registration' then 'Tobi' when 'prayer' then 'Sis. Ngozi' when 'counselling' then 'Bro. Femi'
-                   when 'medical' then 'Dr. Amina' when 'food' then 'Kunle' else 'Grace' end,
+                   when 'medical' then 'Dr. Amina' when 'pharmacy' then 'Pharm. Bayo' when 'food' then 'Kunle' else 'Grace' end,
       now() + interval '12 hours', now(), now() - interval '1 hour')
     returning jsonb_build_object(st.kind, id) || v_session into v_session;
   end loop;
@@ -112,8 +114,8 @@ begin
   -- Draft real edition: default stations with random PINs (rotate in admin to reveal)
   insert into public.stations (edition_id, kind, name, icon, sort_order, is_service, join_pin_hash)
   select v_go, k::public.station_kind, n, ic, o, k <> 'registration', app.hash_pin(app.random_pin())
-  from (values ('registration','Registration','ClipboardPen',0), ('prayer','Prayer','HandHeart',1),
-               ('counselling','Counselling','MessagesSquare',2), ('medical','Medical','Stethoscope',3),
+  from (values ('registration','Registration','ClipboardPen',0), ('prayer','Prayer & Counselling','HandHeart',1),
+               ('medical','Medical','Stethoscope',2), ('pharmacy','Pharmacy','Pill',3),
                ('food','Food','UtensilsCrossed',4), ('clothing','Clothing','Shirt',5)) as d(k, n, ic, o);
 
   -- Inventory: 60 items -----------------------------------------------------------

@@ -46,7 +46,7 @@ export function HomeView({ session }: { session: VolunteerSession }) {
           <Search className="size-5 text-forest" /> Search name, phone, code
         </Button>
         <Button variant="secondary" size="lg" block className="justify-start text-neutral-700" onClick={() => openKeypad("lookup")}>
-          <Keyboard className="size-5 text-forest" /> Type card code
+          <Keyboard className="size-5 text-forest" /> Type number
         </Button>
       </div>
 
