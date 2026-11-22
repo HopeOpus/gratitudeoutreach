@@ -22,7 +22,9 @@ declare
   v_gender public.gender; v_age public.age_range; v_comm text; v_phone text;
   v_reg timestamptz; v_at timestamptz;
   v_need text;
-  v_day_start timestamptz := (current_date::timestamp + time '08:00') at time zone 'Africa/Lagos';
+  -- Registrations span 5 h and services up to ~2 h after, so start 8 h ago: every
+  -- seeded time is in the past and real activity always appears newest.
+  v_day_start timestamptz := date_trunc('minute', now() - interval '8 hours');
   firsts_f text[] := array['Ada','Ngozi','Chiamaka','Aisha','Fatima','Blessing','Grace','Funke','Bisi','Amina','Zainab','Halima','Chioma','Esther','Ruth','Mercy','Joy','Patience','Hauwa','Ifeoma','Kemi','Yetunde','Titi','Nkechi','Uche','Hadiza','Rakiya','Comfort','Precious','Favour'];
   firsts_m text[] := array['Musa','John','Emeka','Tunde','Ibrahim','Chinedu','Segun','Yusuf','Samuel','Daniel','Obinna','Abdullahi','Femi','Kunle','Sani','Bello','Uchenna','Peter','Paul','David','Ahmed','Garba','Ikenna','Tobi','Victor','Godwin','Sunday','Emmanuel','Isaac','Joseph'];
   lasts text[] := array['Okafor','Bello','Adeyemi','Okonkwo','Abubakar','Eze','Ibrahim','Ogunleye','Nwosu','Musa','Danjuma','Okoro','Adebayo','Usman','Obi','Balogun','Yakubu','Chukwu','Afolabi','Garba','Onyeka','Suleiman','Ojo','Lawal','Akpan','Etim','Bassey','Audu','Ogbu','Ayodele'];

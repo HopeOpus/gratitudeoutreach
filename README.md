@@ -90,19 +90,22 @@ A Lead PIN entered at join ("I'm the Station Lead") makes that person a Station 
 
 ## Deployment (Vercel + Supabase)
 
-1. **Supabase**: create a project (Pro plan recommended for the event month). In *Auth → Providers*, enable **Email** and **Anonymous sign-ins**. Raise the anonymous sign-in rate limit to about 300/hour (all volunteers may join from one venue IP).
-2. Apply the schema: `pnpm exec supabase link --project-ref <ref>` then `pnpm exec supabase db push`. **Do not run `seed.sql` in production.**
-3. Create the organisation in the SQL editor, then the first Super Admin with the script (it prints a generated password):
-   ```sql
-   insert into organizations (name, church_name, consent_text) values ('Gratitude Outreach', 'Gratitude Church', '<consent script>');
-   ```
+**Live:** https://gratitudeoutreach.vercel.app (volunteers: `/join`, admins: `/admin/login`).
+Vercel project `gratitudeoutreach`, deployed from `main` of `HopeOpus/gratitudeoutreach` on every push.
+Supabase project `gratitude-outreach` (ref `chuypmcjovphxsvuckag`, EU West).
+
+To set up a new environment the same way:
+
+1. **Supabase:** create a project (Pro plan recommended for the event month). Turn on **Anonymous sign-ins**, raise the anonymous sign-in rate limit to 1,000/hour (all volunteers join from one venue IP), and set the site URL to the Vercel domain. `supabase config push` from a copy of `config.toml` with the production URLs does all three.
+2. **Schema:** `pnpm exec supabase link --project-ref <ref>`, then `pnpm exec supabase db push`.
+3. **Data:** `pnpm exec supabase db query --remote -f supabase/seed.production.sql` creates the organisation, Training 2026 (with test people, for rehearsals) and the draft Gratitude Outreach 2026 edition. **Never run `seed.sql` in production:** it creates demo admins with a shared password.
+4. **First Super Admin** (prints a generated password if you leave the last argument out):
    ```bash
    NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<key> \
      node scripts/create-admin.mjs you@church.org super_admin "Your Name"
    ```
-4. **Vercel**: import the repo and set the env vars above (service role, `JOIN_TOKEN_SECRET`, `CRON_SECRET` as *server* variables). `vercel.json` schedules the nightly retention job.
-5. In Supabase *Auth → URL configuration*, set the site URL to your Vercel domain (for magic links and invites).
-6. Run `pnpm db:test` against a staging project before the event.
+5. **Vercel:** import the repo and set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public config), plus `SUPABASE_SERVICE_ROLE_KEY`, `JOIN_TOKEN_SECRET` and `CRON_SECRET` as secrets. `vercel.json` schedules the nightly retention job.
+6. **Check it:** `SMOKE_URL=https://<domain> SMOKE_ADMIN_EMAIL=… SMOKE_ADMIN_PASSWORD=… pnpm smoke` runs a phone-sized test on the deployed site: register with a QR slip, tick at Prayer, see it on the admin feed. It only uses the Training edition.
 
 ---
 

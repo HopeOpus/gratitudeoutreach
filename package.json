@@ -14,7 +14,8 @@
     "icons": "node scripts/gen-icons.mjs",
     "db:reset": "supabase db reset",
     "db:test": "supabase test db",
-    "db:types": "supabase gen types typescript --local > src/lib/supabase/types.ts"
+    "db:types": "supabase gen types typescript --local > src/lib/supabase/types.ts",
+    "smoke": "playwright test --config playwright.smoke.config.ts"
   },
   "dependencies": {
     "@fontsource/sora": "^5.3.0",
