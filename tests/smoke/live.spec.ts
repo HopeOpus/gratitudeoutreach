@@ -1,13 +1,24 @@
 import { test, expect, type Page } from "@playwright/test";
 
-async function join(page: Page, pin: string, name: string) {
-  await page.goto("/join");
-  await page.getByLabel("Station PIN").fill(pin);
-  await expect(page.getByRole("heading", { name: "Who are you?" })).toBeVisible();
-  await page.getByLabel(/First name/).fill(name);
-  await page.getByRole("button", { name: "Start serving" }).click();
+const phone = () => `080${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}`;
+
+async function synced(page: Page) {
   await page.waitForURL("**/s");
   await expect(page.getByRole("button", { name: /Sync status: Synced/ })).toBeVisible({ timeout: 60_000 });
+}
+
+/** Register a volunteer account at a station. Returns the phone number used. */
+async function join(page: Page, pin: string, name: string) {
+  const tel = phone();
+  await page.goto("/join");
+  await page.getByRole("radio", { name: "Register" }).click();
+  await page.getByLabel("Station PIN").fill(pin);
+  await expect(page.getByRole("heading", { name: "Who are you?" })).toBeVisible();
+  await page.getByLabel(/^Name/).fill(name);
+  await page.getByLabel(/^Phone number/).fill(tel);
+  await page.getByRole("button", { name: "Register and start" }).click();
+  await synced(page);
+  return tel;
 }
 
 test("live: register with QR slip, tick at Prayer, see it on the admin dashboard", async ({ browser }) => {
@@ -59,15 +70,16 @@ test("live: register with QR slip, tick at Prayer, see it on the admin dashboard
 
 async function joinConfidential(page: Page, pin: string, name: string, rolePin: string) {
   await page.goto("/join");
+  await page.getByRole("radio", { name: "Register" }).click();
   await page.getByLabel("Station PIN").fill(pin);
   await expect(page.getByRole("heading", { name: "Who are you?" })).toBeVisible();
-  await page.getByLabel(/First name/).fill(name);
+  await page.getByLabel(/^Name/).fill(name);
+  await page.getByLabel(/^Phone number/).fill(phone());
   await page.getByRole("button", { name: "Next" }).click();
   await page.getByLabel(/Role PIN/).fill(rolePin);
   await page.getByLabel("I agree to keep information confidential").check();
   await page.getByRole("button", { name: "Start serving" }).click();
-  await page.waitForURL("**/s");
-  await expect(page.getByRole("button", { name: /Sync status: Synced/ })).toBeVisible({ timeout: 60_000 });
+  await synced(page);
 }
 
 test("live: Medical prescribes, Pharmacy sees the prescription and dispenses", async ({ browser }) => {
@@ -110,4 +122,23 @@ test("live: Medical prescribes, Pharmacy sees the prescription and dispenses", a
   await ph.getByRole("button", { name: "Save", exact: true }).click();
   await expect(ph.getByText(/Saved · Pharmacy for/)).toBeVisible();
   await expect(ph.getByRole("button", { name: /Sync status: Synced/ })).toBeVisible({ timeout: 30_000 });
+});
+
+test("live: one volunteer account signs in on two phones", async ({ browser }) => {
+  const name = `Smoke Vol ${Date.now().toString().slice(-5)}`;
+  const a = await (await browser.newContext()).newPage();
+  const tel = await join(a, "555555", name);
+
+  const b = await (await browser.newContext()).newPage();
+  await b.goto("/join");
+  await b.getByLabel(/^Name/).fill(name);
+  await b.getByLabel(/^Phone number/).fill(phone());
+  await b.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(b.getByText(/Account not found/)).toBeVisible();
+  await b.getByLabel(/^Phone number/).fill(tel);
+  await b.getByRole("button", { name: "Sign in", exact: true }).click();
+  await synced(b);
+
+  await a.reload();
+  await expect(a.getByRole("navigation", { name: "Station" })).toBeVisible({ timeout: 30_000 });
 });
