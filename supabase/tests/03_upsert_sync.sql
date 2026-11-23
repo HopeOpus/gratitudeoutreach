@@ -34,9 +34,9 @@ grant execute on all functions in schema t to authenticated;
 
 insert into t.ids values ('reg', t.new_user()), ('food', t.new_user()), ('med', t.new_user()),
   ('ben', gen_random_uuid()), ('visit', gen_random_uuid()), ('rec', gen_random_uuid()), ('mrec', gen_random_uuid()), ('flag', gen_random_uuid());
-select t.run(t.id('reg'), $$select public.join_station('111111', 'Tobi')$$);
-select t.run(t.id('food'), $$select public.join_station('555555', 'Kunle')$$);
-select t.run(t.id('med'), $$select public.join_station('444444', 'Amina', null, '404040', 'Dr', null, true)$$);
+select t.run(t.id('reg'), $$select public.join_station('111111', 'Tobi', '+2348100000001')$$);
+select t.run(t.id('food'), $$select public.join_station('555555', 'Kunle', '+2348100000002')$$);
+select t.run(t.id('med'), $$select public.join_station('444444', 'Amina', '+2348100000003', '404040', 'Dr', null, true)$$);
 
 select plan(10);
 

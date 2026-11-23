@@ -15,7 +15,7 @@ test("revoking a session purges the device's local data", async ({ page }) => {
   // flight; otherwise a reload triggers one. Either way the device must end up wiped on /join.
   await page.waitForURL("**/join**", { timeout: 3000 }).catch(async () => { await page.reload(); });
   await page.waitForURL("**/join**", { timeout: 20_000 });
-  await expect(page.getByRole("heading", { name: "Enter station PIN" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
   // The join page may open a fresh (empty) database; nothing from the old session may remain.
   const left = await page.evaluate(() => new Promise<{ visits: number; meta: number }>((resolve) => {
     const req = indexedDB.open("gratitude-connect");
@@ -35,10 +35,25 @@ test("revoking a session purges the device's local data", async ({ page }) => {
 test("five wrong PINs lock the device out for 5 minutes", async ({ browser }) => {
   const page = await (await browser.newContext()).newPage();
   await page.goto("/join");
+  await page.getByRole("radio", { name: "Register" }).click();
   for (let i = 0; i < 5; i++) {
     await page.getByLabel("Station PIN").fill(`00000${i}`);
     await expect(page.getByText("That PIN doesn't match a station")).toBeVisible();
   }
   await page.getByLabel("Station PIN").fill("555555");
+  await expect(page.getByText(/Too many tries/)).toBeVisible();
+});
+
+test("five wrong sign-ins lock the device out too", async ({ browser }) => {
+  const page = await (await browser.newContext()).newPage();
+  await page.goto("/join");
+  await page.getByLabel(/^Name/).fill("Nobody");
+  for (let i = 0; i < 5; i++) {
+    await page.getByLabel(/^Phone number/).fill(`0809000000${i}`);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(page.getByText(/Account not found/)).toBeVisible();
+  }
+  await page.getByLabel(/^Phone number/).fill("08090000009");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByText(/Too many tries/)).toBeVisible();
 });

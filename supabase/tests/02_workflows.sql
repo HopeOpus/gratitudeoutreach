@@ -35,11 +35,11 @@ insert into t.ids select 'paracetamol', id from public.inventory_items where nam
 insert into t.ids select 'medical_station', id from public.stations where kind = 'medical' and edition_id = t.id('tr');
 insert into t.ids select 'food_station', id from public.stations where kind = 'food' and edition_id = t.id('tr');
 
-select t.val(t.id('reg'), $$select public.join_station('111111', 'Tobi')$$);
-select t.val(t.id('prayer'), $$select public.join_station('222222', 'Ngozi')$$);
-select t.val(t.id('couns'), $$select public.join_station('333333', 'Femi', null, '303030', null, null, true)$$);
-select t.val(t.id('med'), $$select public.join_station('444444', 'Amina', null, '404040', 'Dr', null, true)$$);
-select t.val(t.id('lead'), $$select public.join_station('555555', 'Lead', null, '999999')$$);
+select t.val(t.id('reg'), $$select public.join_station('111111', 'Tobi', '+2348100000001')$$);
+select t.val(t.id('prayer'), $$select public.join_station('222222', 'Ngozi', '+2348100000002')$$);
+select t.val(t.id('couns'), $$select public.join_station('333333', 'Femi', '+2348100000003', '303030', null, null, true)$$);
+select t.val(t.id('med'), $$select public.join_station('444444', 'Amina', '+2348100000004', '404040', 'Dr', null, true)$$);
+select t.val(t.id('lead'), $$select public.join_station('555555', 'Lead', '+2348100000005', '999999')$$);
 
 select plan(22);
 

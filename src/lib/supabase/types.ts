@@ -589,19 +589,57 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"volunteer_sessions": {
+                },"volunteer_accounts": {
                   Row: {
-                    "confidential_ack_at": string | null,"created_at": string,"designation": string | null,"device_label": string | null,"display_name": string,"edition_id": string,"expires_at": string,"id": string,"last_seen_at": string | null,"oldest_pending_at": string | null,"pending_ops": number,"phone": string | null,"revoked_at": string | null,"role": Database["public"]['Enums']["session_role"],"station_id": string,"updated_at": string,"user_id": string
+                    "created_at": string,"designation": string | null,"disabled_at": string | null,"display_name": string,"edition_id": string,"id": string,"phone": string,"station_id": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "confidential_ack_at"?: string | null,"created_at"?: string,"designation"?: string | null,"device_label"?: string | null,"display_name": string,"edition_id": string,"expires_at": string,"id"?: string,"last_seen_at"?: string | null,"oldest_pending_at"?: string | null,"pending_ops"?: number,"phone"?: string | null,"revoked_at"?: string | null,"role"?: Database["public"]['Enums']["session_role"],"station_id": string,"updated_at"?: string,"user_id": string
+                    "created_at"?: string,"designation"?: string | null,"disabled_at"?: string | null,"display_name": string,"edition_id": string,"id"?: string,"phone": string,"station_id": string,"updated_at"?: string
                   }
                   Update: {
-                    "confidential_ack_at"?: string | null,"created_at"?: string,"designation"?: string | null,"device_label"?: string | null,"display_name"?: string,"edition_id"?: string,"expires_at"?: string,"id"?: string,"last_seen_at"?: string | null,"oldest_pending_at"?: string | null,"pending_ops"?: number,"phone"?: string | null,"revoked_at"?: string | null,"role"?: Database["public"]['Enums']["session_role"],"station_id"?: string,"updated_at"?: string,"user_id"?: string
+                    "created_at"?: string,"designation"?: string | null,"disabled_at"?: string | null,"display_name"?: string,"edition_id"?: string,"id"?: string,"phone"?: string,"station_id"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "volunteer_accounts_edition_id_fkey"
+      columns: ["edition_id"]
+isOneToOne: false
+      referencedRelation: "editions"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "volunteer_accounts_station_id_fkey"
+      columns: ["station_id"]
+isOneToOne: false
+      referencedRelation: "stations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "volunteer_accounts_station_id_fkey"
+      columns: ["station_id"]
+isOneToOne: false
+      referencedRelation: "stations_public"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"volunteer_sessions": {
+                  Row: {
+                    "account_id": string | null,"confidential_ack_at": string | null,"created_at": string,"designation": string | null,"device_label": string | null,"display_name": string,"edition_id": string,"expires_at": string,"id": string,"last_seen_at": string | null,"oldest_pending_at": string | null,"pending_ops": number,"phone": string | null,"revoked_at": string | null,"role": Database["public"]['Enums']["session_role"],"station_id": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "account_id"?: string | null,"confidential_ack_at"?: string | null,"created_at"?: string,"designation"?: string | null,"device_label"?: string | null,"display_name": string,"edition_id": string,"expires_at": string,"id"?: string,"last_seen_at"?: string | null,"oldest_pending_at"?: string | null,"pending_ops"?: number,"phone"?: string | null,"revoked_at"?: string | null,"role"?: Database["public"]['Enums']["session_role"],"station_id": string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "account_id"?: string | null,"confidential_ack_at"?: string | null,"created_at"?: string,"designation"?: string | null,"device_label"?: string | null,"display_name"?: string,"edition_id"?: string,"expires_at"?: string,"id"?: string,"last_seen_at"?: string | null,"oldest_pending_at"?: string | null,"pending_ops"?: number,"phone"?: string | null,"revoked_at"?: string | null,"role"?: Database["public"]['Enums']["session_role"],"station_id"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "volunteer_sessions_account_id_fkey"
+      columns: ["account_id"]
+isOneToOne: false
+      referencedRelation: "volunteer_accounts"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "volunteer_sessions_edition_id_fkey"
       columns: ["edition_id"]
 isOneToOne: false
@@ -763,6 +801,9 @@ isOneToOne: false
                            },
 "set_station_pins":
 { Args: { "p_join_pin"?: string,"p_lead_pin"?: string,"p_role_pin"?: string,"p_station": string }; Returns: undefined
+                           },
+"sign_in_volunteer":
+{ Args: { "p_confidential_ack"?: boolean,"p_device_label"?: string,"p_name": string,"p_phone": string,"p_role_pin"?: string }; Returns: Json
                            },
 "void_service_record":
 { Args: { "p_id": string,"p_reason"?: string }; Returns: undefined

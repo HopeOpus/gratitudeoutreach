@@ -17,7 +17,7 @@ export default function VolunteersPage({ params }: { params: Promise<{ id: strin
   const { id } = use(params);
   const { editions } = useEditionCtx();
   const edition = editions.find((e) => e.id === id);
-  const [filter, setFilter] = useState<"active" | "all">("active");
+  const [filter, setFilter] = useState<"active" | "all" | "registered">("active");
   const [moving, setMoving] = useState<{ id: string; name: string; station_id: string } | null>(null);
 
   const stations = useQuery({ queryKey: ["stations", id], queryFn: async () => (await adminClient().from("stations_public").select("*").eq("edition_id", id).order("sort_order")).data ?? [] });
@@ -25,8 +25,19 @@ export default function VolunteersPage({ params }: { params: Promise<{ id: strin
     queryKey: ["sessions", id],
     queryFn: async () => {
       const { data, error } = await adminClient().from("volunteer_sessions")
-        .select("id, display_name, phone, designation, role, station_id, device_label, last_seen_at, pending_ops, oldest_pending_at, revoked_at, expires_at, created_at")
+        .select("id, account_id, display_name, phone, designation, role, station_id, device_label, last_seen_at, pending_ops, oldest_pending_at, revoked_at, expires_at, created_at")
         .eq("edition_id", id).order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    refetchInterval: 15000,
+  });
+  const accounts = useQuery({
+    queryKey: ["volunteer-accounts", id],
+    queryFn: async () => {
+      const { data, error } = await adminClient().from("volunteer_accounts")
+        .select("id, display_name, phone, designation, station_id, created_at")
+        .eq("edition_id", id).order("display_name");
       if (error) throw error;
       return data;
     },
@@ -46,11 +57,27 @@ export default function VolunteersPage({ params }: { params: Promise<{ id: strin
 
   if (!edition) return <LoadingBlock />;
   const now = Date.now();
-  const rows = (sessions.data ?? []).filter((s) => filter === "all" || (!s.revoked_at && new Date(s.expires_at).getTime() > now));
+  const isActive = (s: { revoked_at: string | null; expires_at: string }) => !s.revoked_at && new Date(s.expires_at).getTime() > now;
+  const rows = (sessions.data ?? []).filter((s) => filter === "all" || isActive(s));
+  const devicesFor = (accountId: string) => (sessions.data ?? []).filter((s) => s.account_id === accountId && isActive(s)).length;
   return (
     <div>
-      <PageHeader title="Volunteers" sub={`${edition.name} · people signed in with a station PIN`} actions={<Segmented label="Filter" value={filter} onChange={setFilter} options={[{ value: "active", label: "Active" }, { value: "all", label: "All" }]} className="w-56" />} />
-      {sessions.isLoading ? <LoadingBlock /> : sessions.error ? <ErrorBlock error={sessions.error} /> : (
+      <PageHeader title="Volunteers" sub={`${edition.name} · volunteers register once with a station PIN, then sign in with name and phone on any device`} actions={<Segmented label="Filter" value={filter} onChange={setFilter} options={[{ value: "active", label: "Signed in" }, { value: "all", label: "All devices" }, { value: "registered", label: "Registered" }]} className="w-96" />} />
+      {filter === "registered" ? (
+        accounts.isLoading ? <LoadingBlock /> : accounts.error ? <ErrorBlock error={accounts.error} /> : (
+          <Table head={["Volunteer", "Phone", "Station", "Registered", "Devices signed in"]} empty="No volunteers have registered yet.">
+            {(accounts.data ?? []).map((a) => (
+              <tr key={a.id}>
+                <Td><span className="font-medium text-forest">{a.designation ? `${a.designation} ` : ""}{a.display_name}</span></Td>
+                <Td className="tabular">{a.phone}</Td>
+                <Td>{stationName(a.station_id)}</Td>
+                <Td>{formatTime(a.created_at)}</Td>
+                <Td className="tabular">{devicesFor(a.id)}</Td>
+              </tr>
+            ))}
+          </Table>
+        )
+      ) : sessions.isLoading ? <LoadingBlock /> : sessions.error ? <ErrorBlock error={sessions.error} /> : (
         <Table head={["Volunteer", "Station", "Joined", "Last seen", "Unsynced", ""]} empty="No volunteers signed in yet.">
           {rows.map((s) => {
             const active = !s.revoked_at && new Date(s.expires_at).getTime() > now;
@@ -74,7 +101,7 @@ export default function VolunteersPage({ params }: { params: Promise<{ id: strin
           })}
         </Table>
       )}
-      <BottomSheet open={!!moving} onOpenChange={(o) => !o && setMoving(null)} title={`Move ${moving?.name ?? ""}`} description="Their phone switches station within 30 seconds. Moving into Medical or Counselling gives access to confidential notes.">
+      <BottomSheet open={!!moving} onOpenChange={(o) => !o && setMoving(null)} title={`Move ${moving?.name ?? ""}`} description="All their signed-in phones switch station within 30 seconds, and they sign in to the new station from now on. Moving into Medical, Pharmacy or Counselling gives access to confidential notes.">
         <Select aria-label="New station" defaultValue={moving?.station_id} onChange={(e) => void move(e.target.value)}>
           {(stations.data ?? []).map((s) => <option key={s.id} value={s.id!}>{s.name}</option>)}
         </Select>

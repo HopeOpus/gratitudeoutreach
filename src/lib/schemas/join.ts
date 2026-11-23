@@ -3,10 +3,14 @@ import { normalizePhone } from "@/lib/utils";
 
 export const pinSchema = z.string().regex(/^\d{6}$/, "Enter the 6-digit PIN");
 
-export const whoSchema = z.object({
-  name: z.string().trim().min(1, "Enter your first name").max(60),
-  phone: z.string().trim().optional().refine((v) => !v || normalizePhone(v) !== null, "Use a Nigerian number, e.g. 0803 123 4567"),
-});
+const nameField = z.string().trim().min(1, "Enter your name").max(60);
+const phoneField = z.string().trim().min(1, "Enter your phone number").refine((v) => normalizePhone(v) !== null, "Use a Nigerian number, e.g. 0803 123 4567");
+
+/** Register: name + phone (required, it becomes the sign-in password). */
+export const whoSchema = z.object({ name: nameField, phone: phoneField });
+
+/** Sign in on any device with the same name + phone used to register. */
+export const signInSchema = z.object({ name: nameField, phone: phoneField });
 
 export const editionSchema = z.object({
   name: z.string().trim().min(3).max(100),

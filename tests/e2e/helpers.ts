@@ -16,21 +16,46 @@ export async function rest<T = unknown>(path: string): Promise<T> {
   return r.json() as Promise<T>;
 }
 
-export async function joinStation(page: Page, pin: string, name: string, opts: { rolePin?: string } = {}) {
+/** A fresh Nigerian number each call, so repeated runs never hit "already registered". */
+export function testPhone(): string {
+  return `080${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}`;
+}
+
+/** Register a volunteer at a station (PIN + name + phone). Returns the phone used. */
+export async function joinStation(page: Page, pin: string, name: string, opts: { rolePin?: string; phone?: string } = {}) {
+  const phone = opts.phone ?? testPhone();
   await page.goto("/join");
+  await page.getByRole("radio", { name: "Register" }).click();
   await page.getByLabel("Station PIN").fill(pin);
   await expect(page.getByRole("heading", { name: "Who are you?" })).toBeVisible();
-  await page.getByLabel(/First name/).fill(name);
+  await page.getByLabel(/^Name/).fill(name);
+  await page.getByLabel(/^Phone number/).fill(phone);
   if (opts.rolePin) {
     await page.getByRole("button", { name: "Next" }).click();
     await page.getByLabel(/Role PIN/).fill(opts.rolePin);
     await page.getByLabel("I agree to keep information confidential").check();
     await page.getByRole("button", { name: "Start serving" }).click();
   } else {
-    await page.getByRole("button", { name: "Start serving" }).click();
+    await page.getByRole("button", { name: "Register and start" }).click();
   }
   await page.waitForURL("**/s");
   // Offline prep finishes, then station home appears
+  await expect(page.getByRole("navigation", { name: "Station" })).toBeVisible({ timeout: 30_000 });
+  return phone;
+}
+
+/** Sign in to an existing volunteer account on this device. */
+export async function signInVolunteer(page: Page, name: string, phone: string, opts: { rolePin?: string } = {}) {
+  await page.goto("/join");
+  await page.getByLabel(/^Name/).fill(name);
+  await page.getByLabel(/^Phone number/).fill(phone);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  if (opts.rolePin) {
+    await page.getByLabel(/Role PIN/).fill(opts.rolePin);
+    await page.getByLabel("I agree to keep information confidential").check();
+    await page.getByRole("button", { name: "Start serving" }).click();
+  }
+  await page.waitForURL("**/s");
   await expect(page.getByRole("navigation", { name: "Station" })).toBeVisible({ timeout: 30_000 });
 }
 

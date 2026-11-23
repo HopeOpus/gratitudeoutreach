@@ -83,8 +83,22 @@ create table stations (
   created_at timestamptz default now(), updated_at timestamptz default now()
 );
 
+-- One per volunteer per edition. Registered with the station PIN + name + phone;
+-- signed in with name + phone on any number of devices (migration 011).
+create table volunteer_accounts (
+  id uuid primary key default gen_random_uuid(),
+  edition_id uuid not null references editions,
+  station_id uuid not null references stations,
+  display_name text not null,
+  phone text not null,                      -- E.164; doubles as the sign-in password
+  designation text,
+  disabled_at timestamptz,
+  unique (edition_id, phone)
+);
+
 create type session_role as enum ('volunteer','station_lead');
-create table volunteer_sessions (
+create table volunteer_sessions (          -- one per device
+  account_id uuid references volunteer_accounts,
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users,  -- anonymous auth user
   edition_id uuid not null references editions,

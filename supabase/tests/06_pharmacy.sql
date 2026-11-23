@@ -36,10 +36,10 @@ select plan(10);
 select is((select name from public.stations where kind = 'prayer' and edition_id = t.id('tr')), 'Prayer & Counselling', 'Prayer and Counselling are one station');
 select ok(not (select enabled from public.stations where kind = 'counselling' and edition_id = t.id('tr')), 'the private-notes Counselling station is off by default');
 
-select is(t.val(t.id('pharm2'), $$select public.join_station('777777', 'No Pin')$$)->>'error', 'invalid_role_pin', 'Pharmacy needs the role PIN');
-select ok(t.val(t.id('pharm'), $$select public.join_station('777777', 'Bayo', null, '707070', 'Pharm', null, true)$$) ? 'session', 'Pharmacy joins with the role PIN and agreement');
-select t.val(t.id('med'), $$select public.join_station('444444', 'Amina', null, '404040', 'Dr', null, true)$$);
-select t.val(t.id('food'), $$select public.join_station('555555', 'Kunle')$$);
+select is(t.val(t.id('pharm2'), $$select public.join_station('777777', 'No Pin', '+2348100000001')$$)->>'error', 'invalid_role_pin', 'Pharmacy needs the role PIN');
+select ok(t.val(t.id('pharm'), $$select public.join_station('777777', 'Bayo', '+2348100000002', '707070', 'Pharm', null, true)$$) ? 'session', 'Pharmacy joins with the role PIN and agreement');
+select t.val(t.id('med'), $$select public.join_station('444444', 'Amina', '+2348100000003', '404040', 'Dr', null, true)$$);
+select t.val(t.id('food'), $$select public.join_station('555555', 'Kunle', '+2348100000004')$$);
 
 -- Medical prescribes and refers to Pharmacy
 select lives_ok($$select t.run(t.id('med'), format($q$

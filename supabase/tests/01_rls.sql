@@ -88,24 +88,24 @@ select plan(61);
 -- ---------------------------------------------------------------------------
 -- 1. Join flow
 -- ---------------------------------------------------------------------------
-select is(t.val(t.id('none'), $$select public.join_station('000000', 'X')$$)->>'error', 'invalid_pin', 'wrong PIN is rejected');
-select is(t.val(t.id('food'), $$select public.join_station('555555', 'Kunle')$$)->'session'->>'role', 'volunteer', 'food volunteer joins with PIN');
-select is(t.val(t.id('med'), $$select public.join_station('444444', 'Dr Ada', null, null, 'Dr')$$)->>'error', 'invalid_role_pin', 'medical without role PIN is rejected');
-select is(t.val(t.id('med'), $$select public.join_station('444444', 'Dr Ada', null, '404040', 'Dr', null, false)$$)->>'error', 'confidential_ack_required', 'medical needs confidentiality acknowledgement');
-select ok(t.val(t.id('med'), $$select public.join_station('444444', 'Dr Ada', null, '404040', 'Dr', null, true)$$) ? 'session', 'medical joins with role PIN + ack');
-select ok(t.val(t.id('couns'), $$select public.join_station('333333', 'Bro Femi', null, '303030', null, null, true)$$) ? 'session', 'counsellor joins');
+select is(t.val(t.id('none'), $$select public.join_station('000000', 'X', '+2348100000001')$$)->>'error', 'invalid_pin', 'wrong PIN is rejected');
+select is(t.val(t.id('food'), $$select public.join_station('555555', 'Kunle', '+2348100000002')$$)->'session'->>'role', 'volunteer', 'food volunteer joins with PIN');
+select is(t.val(t.id('med'), $$select public.join_station('444444', 'Dr Ada', '+2348100000003', null, 'Dr')$$)->>'error', 'invalid_role_pin', 'medical without role PIN is rejected');
+select is(t.val(t.id('med'), $$select public.join_station('444444', 'Dr Ada', '+2348100000004', '404040', 'Dr', null, false)$$)->>'error', 'confidential_ack_required', 'medical needs confidentiality acknowledgement');
+select ok(t.val(t.id('med'), $$select public.join_station('444444', 'Dr Ada', '+2348100000005', '404040', 'Dr', null, true)$$) ? 'session', 'medical joins with role PIN + ack');
+select ok(t.val(t.id('couns'), $$select public.join_station('333333', 'Bro Femi', '+2348100000006', '303030', null, null, true)$$) ? 'session', 'counsellor joins');
 select ok(t.val(t.id('reg'), $$select public.join_station('111111', 'Tobi', '+2348012345678')$$) ? 'session', 'registration joins');
-select ok(t.val(t.id('prayer'), $$select public.join_station('222222', 'Ngozi')$$) ? 'session', 'prayer joins');
-select is(t.val(t.id('lead'), $$select public.join_station('555555', 'Lead', null, '999999')$$)->'session'->>'role', 'station_lead', 'lead PIN gives station_lead role');
-select is(t.val(t.id('food'), $$select public.join_station('555555', '')$$)->>'error', 'name_required', 'name is required');
+select ok(t.val(t.id('prayer'), $$select public.join_station('222222', 'Ngozi', '+2348100000007')$$) ? 'session', 'prayer joins');
+select is(t.val(t.id('lead'), $$select public.join_station('555555', 'Lead', '+2348100000008', '999999')$$)->'session'->>'role', 'station_lead', 'lead PIN gives station_lead role');
+select is(t.val(t.id('food'), $$select public.join_station('555555', '', '+2348100000009')$$)->>'error', 'name_required', 'name is required');
 
 -- Rate limit: 5 failures lock the user out (even with the right PIN)
-select t.val(t.id('brute'), $$select public.join_station('000001', 'B')$$);
-select t.val(t.id('brute'), $$select public.join_station('000002', 'B')$$);
-select t.val(t.id('brute'), $$select public.join_station('000003', 'B')$$);
-select t.val(t.id('brute'), $$select public.join_station('000004', 'B')$$);
-select t.val(t.id('brute'), $$select public.join_station('000005', 'B')$$);
-select is(t.val(t.id('brute'), $$select public.join_station('555555', 'B')$$)->>'error', 'locked', '6th attempt after 5 failures is locked');
+select t.val(t.id('brute'), $$select public.join_station('000001', 'B', '+2348100000010')$$);
+select t.val(t.id('brute'), $$select public.join_station('000002', 'B', '+2348100000011')$$);
+select t.val(t.id('brute'), $$select public.join_station('000003', 'B', '+2348100000012')$$);
+select t.val(t.id('brute'), $$select public.join_station('000004', 'B', '+2348100000013')$$);
+select t.val(t.id('brute'), $$select public.join_station('000005', 'B', '+2348100000014')$$);
+select is(t.val(t.id('brute'), $$select public.join_station('555555', 'B', '+2348100000015')$$)->>'error', 'locked', '6th attempt after 5 failures is locked');
 
 -- ---------------------------------------------------------------------------
 -- 2. No session = no data

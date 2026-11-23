@@ -112,7 +112,7 @@ To set up a new environment the same way:
 
 ## How the day works
 
-1. **Volunteers log in to their station.** Each one scans the station poster (or types the station PIN) and enters their name. No accounts or passwords.
+1. **Volunteers register once, then sign in.** The first time, a volunteer taps **Register**, scans the station poster (or types the station PIN) and enters their name and phone number. After that they sign in on any phone, or several phones at once, with the same name and phone number. Medical, Pharmacy and Counselling still ask for the role PIN on every phone.
 2. **Registration takes the person's details and needs** (Prayer & Counselling, Medical, Food, Clothing...), reads the consent aloud and taps **Save registration**. The phone gives them the next number (for example `GO26-0412`, the same sequence as the pre-printed cards) and shows a QR. Tap **Print QR slip** and hand the slip over.
 3. **Every other stand scans the slip**, types just the number (the `GO26-` part is fixed), or taps **Search by name** if the person has lost it. The person's name, age and needs show, with a short checklist for that stand (for example *Has been prayed for*, *Received healing*, *Gave their life to Christ*, or *Has received food*). Tick what was done and tap **Save**. **More details** opens the full form when needed.
    - **Medical** ticks *Seen*, and can add a **prescription** from the medicines in the inventory, with quantity and dosage. Saving sends the person to **Pharmacy**.

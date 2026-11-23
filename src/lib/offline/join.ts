@@ -12,19 +12,25 @@ const ERRORS: Record<string, string> = {
   locked: "Too many tries. Please wait 5 minutes, then try again.",
   invalid_role_pin: "That role PIN is not right. Ask your Station Lead.",
   confidential_ack_required: "Please agree to keep information confidential.",
-  name_required: "Enter your first name.",
+  name_required: "Enter your name.",
+  phone_required: "Enter your phone number. You will use it to sign in.",
   invalid_phone: "Use a Nigerian number, e.g. 0803 123 4567.",
+  already_registered: "This phone number is already registered. Sign in instead.",
+  account_not_found: "Account not found. Check your name and phone number, or register.",
+  station_closed: "Your station is closed right now. Ask your coordinator.",
   edition_ended: "This event has ended.",
 };
 export const joinErrorText = (code: string) => ERRORS[code] ?? "Could not join. Check your connection and try again.";
 
 type Cred = { pin?: string; token?: string };
 
+const deviceLabel = () =>
+  typeof navigator !== "undefined" ? navigator.userAgent.match(/\(([^;)]+)/)?.[1]?.slice(0, 40) ?? "Phone" : "Phone";
+
 async function call(cred: Cred, extra: Record<string, unknown>) {
   await ensureAnonymousUser();
   const sb = (await volunteerClient());
-  const deviceLabel = typeof navigator !== "undefined" ? navigator.userAgent.match(/\(([^;)]+)/)?.[1]?.slice(0, 40) ?? "Phone" : "Phone";
-  const base = { p_device_label: deviceLabel, ...extra };
+  const base = { p_device_label: deviceLabel(), ...extra };
   const res = cred.token
     ? await sb.rpc("join_station_token", { p_token: cred.token, ...base } as never)
     : await sb.rpc("join_station", { p_pin: cred.pin ?? "", ...base } as never);
@@ -40,8 +46,8 @@ export async function checkStation(cred: Cred): Promise<JoinCheck> {
   return { ok: true, station: st, needsRolePin: Boolean(data.needs_role_pin) };
 }
 
-/** Step 2: create the session, then prepare the device. */
-export async function completeJoin(cred: Cred, who: { name: string; phone?: string; rolePin?: string; designation?: string; ack?: boolean }) {
+/** Step 2 (register): create the account and this device's session, then prepare the device. */
+export async function completeJoin(cred: Cred, who: { name: string; phone: string; rolePin?: string; designation?: string; ack?: boolean }) {
   const data = await call(cred, {
     p_name: who.name.trim(),
     p_phone: normalizePhone(who.phone) ?? null,
@@ -50,17 +56,48 @@ export async function completeJoin(cred: Cred, who: { name: string; phone?: stri
     p_confidential_ack: !!who.ack,
   });
   if (data.error) return { ok: false as const, error: String(data.error), needsRolePin: Boolean(data.needs_role_pin) };
+  return { ok: true as const, session: await prepareDevice(data) };
+}
 
-  // Fresh device state for every new session (never mix editions/stations).
+export type SignInResult =
+  | { ok: true; session: VolunteerSession }
+  | { ok: false; needsRolePin: true; station: { id: string; name: string; kind: string }; error?: undefined }
+  | { ok: false; error: string; needsRolePin?: boolean };
+
+/**
+ * Sign in to an existing account on this device. Other devices on the same
+ * account stay signed in. Confidential stations answer `needsRolePin` first.
+ */
+export async function signIn(who: { name: string; phone: string; rolePin?: string; ack?: boolean }): Promise<SignInResult> {
+  await ensureAnonymousUser();
+  const sb = await volunteerClient();
+  const res = await sb.rpc("sign_in_volunteer", {
+    p_name: who.name.trim(),
+    p_phone: normalizePhone(who.phone) ?? "",
+    p_role_pin: who.rolePin || null,
+    p_device_label: deviceLabel(),
+    p_confidential_ack: !!who.ack,
+  } as never);
+  if (res.error) throw res.error;
+  const data = res.data as Record<string, unknown>;
+  if (data.error) return { ok: false, error: String(data.error), needsRolePin: Boolean(data.needs_role_pin) };
+  if (data.needs_role_pin && !data.session) {
+    return { ok: false, needsRolePin: true, station: data.station as { id: string; name: string; kind: string } };
+  }
+  return { ok: true, session: await prepareDevice(data) };
+}
+
+/** Fresh device state for every new session (never mix editions/stations). */
+async function prepareDevice(data: Record<string, unknown>): Promise<VolunteerSession> {
   await purgeLocalData();
   const session = data as unknown as VolunteerSession;
   await saveSession(session);
-  const sb = (await volunteerClient());
+  const sb = await volunteerClient();
   const { data: stations } = await sb.from("stations_public").select("*").eq("edition_id", session.edition.id).order("sort_order");
   if (stations) await db().stations.bulkPut(stations as unknown as LocalStation[]);
   if (session.station.kind === "registration") {
     const { data: block } = await sb.rpc("reserve_code_block", { p_size: 200 });
     if (block) await setMeta("code_block", block);
   }
-  return { ok: true as const, session };
+  return session;
 }

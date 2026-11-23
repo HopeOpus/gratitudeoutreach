@@ -24,8 +24,8 @@ grant select on t.ids to authenticated;
 grant execute on all functions in schema t to authenticated;
 
 insert into t.ids values ('reg', t.new_user()), ('prayer', t.new_user());
-select t.val(t.id('reg'), $$select public.join_station('111111', 'Tobi')$$);
-select t.val(t.id('prayer'), $$select public.join_station('222222', 'Ngozi')$$);
+select t.val(t.id('reg'), $$select public.join_station('111111', 'Tobi', '+2348100000001')$$);
+select t.val(t.id('prayer'), $$select public.join_station('222222', 'Ngozi', '+2348100000002')$$);
 
 insert into t.ids values ('coord', '00000000-0000-4000-8000-00000000ad02'), ('tr', '00000000-0000-4000-8000-0000000000e1');
 
