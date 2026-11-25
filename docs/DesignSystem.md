@@ -185,3 +185,15 @@ fontWeight: { light: "300", normal: "400", medium: "500" }, // intentionally no 
 ```
 
 If using Tailwind v4 (CSS-first), put the same values in `@theme { --color-forest: #07210D; ... }` in `globals.css`.
+
+---
+
+## 11. Cause a Smile Initiative (public NGO pages)
+
+Colours from the NGO logo (`public/brand/causeasmile-logo.svg`), applied with the `theme-smile` class in `globals.css`, which remaps the tokens above. Gratitude Outreach pages and the app keep the Gratitude palette.
+
+| Role | Hex | Contrast |
+|---|---|---|
+| Purple (headings, dark panels, buttons) | #441A86 | 11+ : 1 on white |
+| Wordmark purple (icon tiles) | #7030A0 | 8+ : 1 with white |
+| Green (accents, fills with purple text) | #63B330 | Never as text on white; purple on it 4.5+ : 1 |

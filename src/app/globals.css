@@ -136,6 +136,23 @@
   }
 }
 
+/* Cause a Smile Initiative pages: the NGO logo's purple and green, remapped onto the same
+   token names so the shared site components follow (DesignSystem §11). */
+.theme-smile {
+  --color-forest: #441a86;
+  --color-forest-100: #e4daf3;
+  --color-forest-950: #331366;
+  --color-leaf: #7030a0;
+  --color-leaf-50: #f3effa;
+  --color-leaf-600: #7030a0;
+  --color-leaf-700: #5b2596;
+  --color-fresh: #63b330;
+  --color-fresh-100: #e0f1d4;
+  --color-fresh-400: #7cc44d;
+  --color-teal-700: #3a7318;
+  --color-neutral-25: #faf9fc;
+}
+
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;

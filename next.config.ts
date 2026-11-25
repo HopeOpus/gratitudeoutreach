@@ -10,10 +10,12 @@ const withSerwist = withSerwistInit({
   // Never auto-reload when the network returns: it would wipe a half-filled form.
   reloadOnOnline: false,
   cacheOnNavigation: false,
+  // App assets only: volunteers' phones must not download the public website's photos.
+  globPublicPatterns: ["icons/**/*", "brand/gratitude-*"],
   additionalPrecacheEntries: [
     { url: "/s", revision },
     { url: "/join", revision },
-    { url: "/", revision },
+    { url: "/gratitudeoutreach/team", revision },
   ],
 });
 
@@ -32,6 +34,14 @@ const nextConfig: NextConfig = {
   // PDF routes read logos and Sora font files from disk.
   outputFileTracingIncludes: {
     "/api/**": ["./public/icons/**", "./node_modules/@fontsource/sora/files/sora-latin-*-normal.woff"],
+  },
+  // Friendly addresses under the outreach page. The app keeps its root paths so the
+  // service worker scope, installed PWAs and printed posters stay valid.
+  async redirects() {
+    return [
+      { source: "/gratitudeoutreach/join/:token*", destination: "/join/:token*", permanent: false },
+      { source: "/gratitudeoutreach/admin", destination: "/admin", permanent: false },
+    ];
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

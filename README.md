@@ -36,7 +36,7 @@ pnpm dev                          # http://localhost:3000
 | `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Used only in `src/app/api/**` after a role check (PIN secrets, join tokens, admin invites) |
 | `JOIN_TOKEN_SECRET` | server only | ≥ 32 random chars. Encrypts printable PIN copies. **Changing it makes stored PINs unreadable**; rotate the PINs afterwards. |
 | `CRON_SECRET` | server only | Protects `/api/cron/retention` (Vercel cron sends it as a Bearer token) |
-| `NEXT_PUBLIC_APP_URL` | optional | Public URL used in join links/posters (defaults to the request host) |
+| `NEXT_PUBLIC_APP_URL` | production | Public URL used in join links/posters (defaults to the request host) |
 
 ## Commands
 
