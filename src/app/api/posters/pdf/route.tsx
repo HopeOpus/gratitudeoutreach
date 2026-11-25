@@ -1,3 +1,4 @@
+import { isConfidentialKind } from "@/lib/stations";
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { requireAdmin, loadEdition, bad, appUrl } from "@/lib/server/api-auth";
@@ -24,7 +25,7 @@ export async function GET(req: Request) {
   for (const s of stations ?? []) {
     const { token, hash } = newJoinToken();
     await svc.from("station_join_tokens").insert({ token_hash: hash, station_id: s.id, expires_at: expires, created_by: g.ctx.userId });
-    posterStations.push({ name: s.name, kind: s.kind, pin: pinById.get(s.id) ?? null, joinUrl: `${base}/join/${token}`, confidential: s.kind === "medical" || s.kind === "counselling" });
+    posterStations.push({ name: s.name, kind: s.kind, pin: pinById.get(s.id) ?? null, joinUrl: `${base}/join/${token}`, confidential: isConfidentialKind(s.kind) });
   }
   const pdf = await renderToBuffer(<PostersDocument edition={edition.name} stations={posterStations} training={edition.is_training} />);
   return new NextResponse(new Uint8Array(pdf), {

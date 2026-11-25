@@ -67,14 +67,17 @@ pnpm icons                # regenerate PWA icons + PDF logos from public/brand
 | Station | Station PIN | Role PIN (confidential) | Lead PIN |
 |---|---|---|---|
 | Registration | `111111` | — | `999999` |
-| Prayer & Counselling | `222222` | — | `999999` |
-| Medical | `444444` | `404040` | `999999` |
+| Medical Assistant | `131313` | `130130` | `999999` |
+| General Doctor | `444444` | `404040` | `999999` |
+| Optician | `141414` | `140140` | `999999` |
+| Laboratory | `151515` | `150150` | `999999` |
+| Counselling | `222222` | — | `999999` |
 | Pharmacy | `777777` | `707070` | `999999` |
 | Food | `555555` | — | `999999` |
 | Clothing | `666666` | — | `999999` |
 | Counselling (private notes, **off** by default) | `333333` | `303030` | `999999` |
 
-A Lead PIN entered at join ("I'm the Station Lead") makes that person a Station Lead. It also approves a second food collection.
+A Lead PIN entered at join ("I'm the Station Lead") makes that person a Station Lead. It also approves a second food collection, and Pharmacy before Counselling.
 
 ### Training admin logins (password `Gratitude2026!`)
 
@@ -106,17 +109,18 @@ To set up a new environment the same way:
      node scripts/create-admin.mjs you@church.org super_admin "Your Name"
    ```
 5. **Vercel:** import the repo and set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public config), plus `SUPABASE_SERVICE_ROLE_KEY`, `JOIN_TOKEN_SECRET` and `CRON_SECRET` as secrets. `vercel.json` schedules the nightly retention job.
-6. **Check it:** `SMOKE_URL=https://<domain> SMOKE_ADMIN_EMAIL=… SMOKE_ADMIN_PASSWORD=… pnpm smoke` runs a phone-sized test on the deployed site: register with a QR slip, tick at Prayer, see it on the admin feed. It only uses the Training edition.
+6. **Check it:** `SMOKE_URL=https://<domain> SMOKE_ADMIN_EMAIL=… SMOKE_ADMIN_PASSWORD=… pnpm smoke` runs a phone-sized test on the deployed site: register with a QR slip, complete Counselling, see it on the admin feed. It only uses the Training edition.
 
 ---
 
 ## How the day works
 
 1. **Volunteers register once, then sign in.** The first time, a volunteer taps **Register**, scans the station poster (or types the station PIN) and enters their name and phone number. After that they sign in on any phone, or several phones at once, with the same name and phone number. Medical, Pharmacy and Counselling still ask for the role PIN on every phone.
-2. **Registration takes the person's details and needs** (Prayer & Counselling, Medical, Food, Clothing...), reads the consent aloud and taps **Save registration**. The phone gives them the next number (for example `GO26-0412`, the same sequence as the pre-printed cards) and shows a QR. Tap **Print QR slip** and hand the slip over.
+2. **Registration takes the person's details and needs** (General Doctor, Clothing, Food; Medical Assistant, Counselling and Pharmacy are added for everyone), reads the consent aloud and taps **Save registration**. The phone gives them the next number (for example `GO26-0412`, the same sequence as the pre-printed cards) and shows a QR. Tap **Print QR slip** and hand the slip over.
 3. **Every other stand scans the slip**, types just the number (the `GO26-` part is fixed), or taps **Search by name** if the person has lost it. The person's name, age and needs show, with a short checklist for that stand (for example *Has been prayed for*, *Received healing*, *Gave their life to Christ*, or *Has received food*). Tick what was done and tap **Save**. **More details** opens the full form when needed.
-   - **Medical** ticks *Seen*, and can add a **prescription** from the medicines in the inventory, with quantity and dosage. Saving sends the person to **Pharmacy**.
-   - **Pharmacy** scans them and sees the prescription (who prescribed it, when, and each medicine with its dosage). Untick anything that couldn't be given, then tap **Save**. Stock goes down for what was given. Prescriptions stay private: only Medical and Pharmacy see them, and the shared timeline only says "Medical check" and "Medicine given".
+   - **Medical Assistant** records vital signs. **General Doctor** sees them (and enters none), writes comments, prescribes, requests tests, and refers to the Optician, minor surgery or a hospital. **Laboratory** records results, which go back to the doctor's queue. **Optician** records eye checks. They share one private medical record.
+   - **Counselling** is compulsory: New Convert / Already Born Again / Neither, Holy Ghost baptism, tongues, healing. Other stations only see "Counselling completed".
+   - **Pharmacy** scans them and sees the prescription (who prescribed it, when, and each medicine with its dosage). Untick anything that couldn't be given, then tap **Save**. Stock goes down for what was given. Prescriptions stay private: only Medical and Pharmacy see them, and the shared timeline only says "Medical check" and "Medicine given". **Pharmacy is locked until Counselling is completed** (Station Lead override only, flagged for review). "No medicine needed" closes the step without a prescription.
 4. **The Super Admin watches it live** on the dashboard: counts per station, plus a *Live activity* feed of each registration and each tick, with names. Each name links to that person's page, which shows their needs as waiting or done.
 
 All of this works offline and syncs when the network comes back.
@@ -127,7 +131,7 @@ All of this works offline and syncs when the network comes back.
 
 ### Two weeks before
 - [ ] Create the edition (*Editions → New edition*; clone last year to copy stations and inventory).
-- [ ] Check stations, then rotate PINs. Give **role PINs** only to the Medical and Counselling leads.
+- [ ] Check stations, then rotate PINs. Give **role PINs** only to the leads of Medical Assistant, General Doctor, Optician, Laboratory and Pharmacy.
 - [ ] Enter inventory with opening quantities and low-stock thresholds.
 - [ ] Set up the printer for each registration phone and print a test QR slip, then scan it from another station's phone.
 - [ ] Optional backup: generate pre-printed cards (about 20% of expected turnout). Print the PDF **at 100% scale** and test-scan one card.

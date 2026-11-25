@@ -17,6 +17,9 @@ import { ClothingForm } from "../forms/clothing";
 import { PrayerForm } from "../forms/prayer";
 import { CounsellingForm } from "../forms/counselling";
 import { MedicalForm } from "../forms/medical";
+import { VitalsForm } from "../forms/vitals";
+import { OpticianForm } from "../forms/optician";
+import { LaboratoryForm } from "../forms/laboratory";
 import { GenericForm } from "../forms/generic";
 
 export function ServeView({ visitId, session }: { visitId: string; session: VolunteerSession }) {
@@ -60,6 +63,10 @@ export function ServeView({ visitId, session }: { visitId: string; session: Volu
           : kind === "clothing" ? <ClothingForm {...props} />
           : kind === "prayer" ? <PrayerForm {...props} />
           : kind === "counselling" ? <CounsellingForm {...props} />
+          : kind === "medical_assistant" ? <VitalsForm {...props} />
+          : kind === "optician" ? <OpticianForm {...props} />
+          : kind === "laboratory" ? <LaboratoryForm {...props} />
+          : kind === "pharmacy" ? <EmptyState title="Use the person's page" body="Pharmacy is recorded from the prescription on the person's page." action={<Button onClick={() => navigate(`/s/p/${visit.id}`, { replace: true })}>Open</Button>} />
           : kind === "medical" ? <MedicalForm {...props} />
           : <GenericForm {...props} />}
       </div>

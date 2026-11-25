@@ -63,7 +63,7 @@ test("registration prints a QR slip offline; another station scans it and ticks 
   await reg.getByRole("radio", { name: "Male", exact: true }).click();
   await reg.getByRole("button", { name: "18–35" }).click();
   await reg.getByRole("button", { name: /Next/ }).click();
-  await reg.getByRole("button", { name: /Prayer/ }).click();
+  await reg.getByRole("button", { name: "Food" }).click();
   await reg.getByRole("button", { name: /Next/ }).click();
   await reg.getByLabel(/Agrees to us recording/).check();
   await reg.getByRole("button", { name: "Save registration" }).click();
@@ -83,27 +83,24 @@ test("registration prints a QR slip offline; another station scans it and ticks 
   const visits = await rest<{ id: string }[]>(`visits?card_code=eq.${code}&edition_id=eq.${TRAINING_EDITION}&select=id`);
   expect(visits).toHaveLength(1);
 
-  // Prayer station: open by code, tick, save
+  // Counselling station: search, complete
   const prayCtx = await browser.newContext();
   const pray = await prayCtx.newPage();
   await joinStation(pray, "222222", "Ngozi");
   await pray.getByRole("button", { name: /Search name, phone, code/ }).click();
   await pray.getByLabel(/Search by name/).fill(name);
   await pray.getByRole("list", { name: "Results" }).getByRole("button").first().click();
-  const ticks = pray.getByRole("region", { name: /Tick what was done at Prayer/ });
-  await expect(ticks.getByLabel("Has been prayed for")).toBeChecked();
-  await ticks.getByLabel("Received healing").check();
-  await ticks.getByLabel("Gave their life to Christ").check();
-  await pray.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(pray.getByText(/Saved · Prayer & Counselling for/)).toBeVisible();
+  await pray.getByRole("button", { name: "Start Counselling" }).click();
+  await pray.getByRole("radio", { name: /New Convert/ }).check();
+  await pray.getByLabel("Received healing").check();
+  await pray.getByRole("button", { name: "Complete Counselling" }).click();
+  await expect(pray.getByText(/Saved · Counselling for/)).toBeVisible();
   await waitSynced(pray);
 
-  const recs = await rest<{ summary: string; data: { decision: string } }[]>(`service_records?visit_id=eq.${visits[0]!.id}&select=summary,data`);
-  expect(recs).toHaveLength(1);
-  expect(recs[0]!.summary).toBe("Prayed for · Healing · Salvation");
-  expect(recs[0]!.data.decision).toBe("salvation");
+  const recs = await rest<{ summary: string; data: Record<string, unknown> }[]>(`service_records?visit_id=eq.${visits[0]!.id}&select=summary,data`);
+  expect(recs).toEqual([{ summary: "Counselling completed", data: { counselled: true } }]);
   const needs = await rest<{ state: string }[]>(`visit_needs?visit_id=eq.${visits[0]!.id}&select=state`);
-  expect(needs.map((n) => n.state)).toEqual(["served"]);
+  expect(needs.map((n) => n.state).sort()).toEqual(["pending", "pending", "pending", "served"]);
   const fus = await rest<unknown[]>(`followups?visit_id=eq.${visits[0]!.id}&select=id`);
   expect(fus.length).toBeGreaterThan(0);
   await regCtx.close();

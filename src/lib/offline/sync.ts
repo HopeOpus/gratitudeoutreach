@@ -278,6 +278,7 @@ export async function heartbeat(): Promise<HeartbeatOutcome> {
   const session = await getSession();
   if (session) {
     let changed = false;
+    let reload = false;
     const next: VolunteerSession = structuredClone(session);
     if (hb.edition_status && hb.edition_status !== session.edition.status) {
       next.edition.status = hb.edition_status as VolunteerSession["edition"]["status"];
@@ -286,6 +287,11 @@ export async function heartbeat(): Promise<HeartbeatOutcome> {
     if (hb.station_id && hb.station_id !== session.station.id) {
       const st = await db().stations.get(hb.station_id);
       if (st) {
+        // Different station, different access: drop private notes, then load what the new station may see.
+        if (st.kind !== next.station.kind) {
+          await db().confidential.clear();
+          reload = true;
+        }
         next.station = { ...next.station, id: st.id, kind: st.kind, name: st.name, icon: st.icon };
         next.session.station_id = st.id;
         next.session.role = "volunteer";
@@ -293,6 +299,7 @@ export async function heartbeat(): Promise<HeartbeatOutcome> {
       }
     }
     if (changed) await saveSession(next);
+    if (reload) void loadSnapshot(next.edition.id).catch(() => undefined);
     setSyncState({ readOnly: next.edition.status === "closed" });
   }
   return "ok";

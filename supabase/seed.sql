@@ -86,15 +86,18 @@ begin
   -- Training stations with documented PINs (lead PIN 999999 everywhere)
   for st in select * from (values
       ('registration', 'Registration', 'ClipboardPen', 0, '111111', null),
-      ('prayer', 'Prayer & Counselling', 'HandHeart', 1, '222222', null),
-      ('counselling', 'Counselling (private notes)', 'MessagesSquare', 2, '333333', '303030'),
-      ('medical', 'Medical', 'Stethoscope', 3, '444444', '404040'),
-      ('pharmacy', 'Pharmacy', 'Pill', 4, '777777', '707070'),
-      ('food', 'Food', 'UtensilsCrossed', 5, '555555', null),
-      ('clothing', 'Clothing', 'Shirt', 6, '666666', null)
+      ('medical_assistant', 'Medical Assistant', 'HeartPulse', 1, '131313', '130130'),
+      ('medical', 'General Doctor', 'Stethoscope', 2, '444444', '404040'),
+      ('optician', 'Optician', 'Glasses', 3, '141414', '140140'),
+      ('laboratory', 'Laboratory', 'FlaskConical', 4, '151515', '150150'),
+      ('prayer', 'Counselling', 'HandHeart', 5, '222222', null),
+      ('counselling', 'Counselling (private notes)', 'MessagesSquare', 6, '333333', '303030'),
+      ('pharmacy', 'Pharmacy', 'Pill', 7, '777777', '707070'),
+      ('clothing', 'Clothing', 'Shirt', 8, '666666', null),
+      ('food', 'Food', 'UtensilsCrossed', 9, '555555', null)
     ) as t(kind, name, icon, ord, pin, role_pin)
   loop
-    -- Counselling is part of "Prayer & Counselling"; the private-notes station is kept but off.
+    -- "Counselling" (kind prayer) is the compulsory station; the private-notes station is kept but off.
     insert into public.stations (id, edition_id, kind, name, icon, sort_order, is_service, enabled, join_pin_hash, role_pin_hash, lead_pin_hash)
     values (gen_random_uuid(), v_tr, st.kind::public.station_kind, st.name, st.icon, st.ord, st.kind <> 'registration', st.kind <> 'counselling',
       app.hash_pin(st.pin), case when st.role_pin is not null then app.hash_pin(st.role_pin) end, app.hash_pin('999999'))
@@ -106,7 +109,7 @@ begin
     insert into public.volunteer_sessions (id, user_id, edition_id, station_id, role, display_name, expires_at, revoked_at, last_seen_at)
     values (gen_random_uuid(), v_seed_user, v_tr, (v_station->>st.kind)::uuid, 'volunteer',
       case st.kind when 'registration' then 'Tobi' when 'prayer' then 'Sis. Ngozi' when 'counselling' then 'Bro. Femi'
-                   when 'medical' then 'Dr. Amina' when 'pharmacy' then 'Pharm. Bayo' when 'food' then 'Kunle' else 'Grace' end,
+                   when 'medical_assistant' then 'Nurse Joy' when 'optician' then 'Opt. Uche' when 'laboratory' then 'Lab. Sani' when 'medical' then 'Dr. Amina' when 'pharmacy' then 'Pharm. Bayo' when 'food' then 'Kunle' else 'Grace' end,
       now() + interval '12 hours', now(), now() - interval '1 hour')
     returning jsonb_build_object(st.kind, id) || v_session into v_session;
   end loop;
@@ -114,9 +117,11 @@ begin
   -- Draft real edition: default stations with random PINs (rotate in admin to reveal)
   insert into public.stations (edition_id, kind, name, icon, sort_order, is_service, join_pin_hash)
   select v_go, k::public.station_kind, n, ic, o, k <> 'registration', app.hash_pin(app.random_pin())
-  from (values ('registration','Registration','ClipboardPen',0), ('prayer','Prayer & Counselling','HandHeart',1),
-               ('medical','Medical','Stethoscope',2), ('pharmacy','Pharmacy','Pill',3),
-               ('food','Food','UtensilsCrossed',4), ('clothing','Clothing','Shirt',5)) as d(k, n, ic, o);
+  from (values ('registration','Registration','ClipboardPen',0), ('medical_assistant','Medical Assistant','HeartPulse',1),
+                 ('medical','General Doctor','Stethoscope',2), ('optician','Optician','Glasses',3),
+                 ('laboratory','Laboratory','FlaskConical',4), ('prayer','Counselling','HandHeart',5),
+                 ('pharmacy','Pharmacy','Pill',7), ('clothing','Clothing','Shirt',8),
+                 ('food','Food','UtensilsCrossed',9)) as d(k, n, ic, o);
 
   -- Inventory: 60 items -----------------------------------------------------------
   insert into public.inventory_items (edition_id, station_id, name, unit, opening_qty, low_threshold)
@@ -193,11 +198,15 @@ begin
             v_focus := array(select f from unnest(focus_opts) f where random() < 0.3);
             if cardinality(v_focus) = 0 then v_focus := array['Health']; end if;
             v_decision := case when random() < 0.12 then 'salvation' when random() < 0.08 then 'rededication' else 'none' end;
-            insert into public.service_records (id, edition_id, visit_id, station_id, session_id, served_by_name, summary, data, served_at)
+            insert into public.service_records (id, edition_id, visit_id, station_id, session_id, served_by_name, summary, data, has_confidential, served_at)
             values (v_r, v_tr, v_v, (v_station->>'prayer')::uuid, (v_session->>'prayer')::uuid, 'Sis. Ngozi',
-              array_to_string(v_focus, ', ') || case v_decision when 'salvation' then ' · Salvation' when 'rededication' then ' · Rededication' else '' end,
-              jsonb_build_object('focus', to_jsonb(v_focus), 'decision', v_decision, 'wants_followup', random() < 0.25,
-                                 'join_fellowship', random() < 0.15), v_at);
+              'Counselling completed', '{"counselled": true}', true, v_at);
+            insert into public.confidential_records (service_record_id, edition_id, visit_id, kind, payload)
+            values (v_r, v_tr, v_v, 'spiritual', jsonb_build_object(
+              'faith', case when v_decision = 'salvation' then 'new_convert' when random() < 0.7 then 'born_again' else 'neither' end,
+              'rededicated', v_decision = 'rededication', 'prayed', true, 'healing', random() < 0.1,
+              'holy_ghost', (array['already','today','not_yet'])[1 + floor(random() * 3)::int], 'tongues', random() < 0.2,
+              'wants_followup', random() < 0.25, 'join_fellowship', random() < 0.15, 'focus', to_jsonb(v_focus)));
           elsif v_need = 'counselling' then
             insert into public.service_records (id, edition_id, visit_id, station_id, session_id, served_by_name, summary, data, has_confidential, served_at)
             values (v_r, v_tr, v_v, (v_station->>'counselling')::uuid, (v_session->>'counselling')::uuid, 'Bro. Femi', 'Counselling session',
@@ -210,17 +219,24 @@ begin
             v_sys := 105 + floor(random() * 70)::int;
             v_dia := 65 + floor(random() * 40)::int;
             v_ref := random() < 0.08;
+            insert into public.service_records (id, edition_id, visit_id, station_id, session_id, served_by_name, summary, data, has_confidential, served_at)
+            values (v_r, v_tr, v_v, (v_station->>'medical_assistant')::uuid, (v_session->>'medical_assistant')::uuid, 'Nurse Joy',
+              'Vital signs taken', '{}', true, v_at - interval '3 minutes');
+            insert into public.confidential_records (service_record_id, edition_id, visit_id, kind, payload)
+            values (v_r, v_tr, v_v, 'medical', jsonb_build_object(
+              'vitals', jsonb_build_object('bp_sys', v_sys, 'bp_dia', v_dia, 'pulse', 60 + floor(random() * 40)::int,
+                                           'temp_c', round((36 + random() * 2.5)::numeric, 1)), 'designation', 'Nurse'));
+            v_r := gen_random_uuid();
             v_item := v_items_med[1 + floor(random() * cardinality(v_items_med))::int];
             insert into public.service_records (id, edition_id, visit_id, station_id, session_id, served_by_name, summary, data, has_confidential, served_at)
             values (v_r, v_tr, v_v, (v_station->>'medical')::uuid, (v_session->>'medical')::uuid, 'Dr. Amina',
               case when v_ref then 'Medical check · referred' else 'Medical check' end,
-              jsonb_build_object('tests', jsonb_build_array('BP'), 'referred', v_ref,
+              jsonb_build_object('tests', '[]'::jsonb, 'referred', v_ref,
                 'referral_urgency', case when v_ref then 'routine' end,
                 'items', jsonb_build_array(jsonb_build_object('item_id', v_item, 'qty', 1))), true, v_at);
             insert into public.confidential_records (service_record_id, edition_id, visit_id, kind, payload)
             values (v_r, v_tr, v_v, 'medical', jsonb_build_object(
-              'vitals', jsonb_build_object('bp_sys', v_sys, 'bp_dia', v_dia, 'pulse', 60 + floor(random() * 40)::int,
-                                           'temp_c', round((36 + random() * 2.5)::numeric, 1)),
+              'vitals', '{}'::jsonb,
               'complaint', jsonb_build_array(complaints[1 + floor(random() * 8)::int]),
               'impression', 'Training impression (fake data)', 'designation', 'Dr',
               'dispensed', jsonb_build_array(jsonb_build_object('item_id', v_item, 'qty', 1, 'dosage', '1 tab twice daily'))));

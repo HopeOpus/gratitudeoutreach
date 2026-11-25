@@ -51,7 +51,7 @@ export function PrescriptionEditor({ drugs, lines, onChange }: { drugs: LocalInv
         </div>
       ))}
       {drugs.length === 0 ? (
-        <p className="text-caption text-neutral-500">No medicines in the inventory yet. Ask the coordinator to add them under Medical or Pharmacy.</p>
+        <p className="text-caption text-neutral-500">No medicines in the inventory yet. Ask the coordinator to add them under General Doctor or Pharmacy.</p>
       ) : (
         <>
           <Input aria-label="Find a medicine" placeholder="Find a medicine…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -69,19 +69,20 @@ export function PrescriptionEditor({ drugs, lines, onChange }: { drugs: LocalInv
   );
 }
 
-export type PendingRx = { recordId: string; lines: RxLine[]; by: string | null; at: string };
+export type PendingRx = { more: number; recordId: string; lines: RxLine[]; by: string | null; at: string };
 
-/** Latest Medical prescription that no Pharmacy record has filled yet. */
+/** Oldest prescription (doctor or optician) that no Pharmacy record has filled yet, and how many more wait. */
 export function pendingPrescription(confidential: LocalConfidential[], records: LocalRecord[], pharmacyStationIds: Set<string>): PendingRx | null {
   const filled = new Set(records.filter((r) => pharmacyStationIds.has(r.station_id) && !r.voided_at).map((r) => String(r.data.prescription_id ?? "")));
   const byId = new Map(records.map((r) => [r.id, r]));
-  const rx = confidential
+  const open = confidential
     .filter((c) => c.kind === "medical" && Array.isArray(c.payload.prescription) && (c.payload.prescription as unknown[]).length > 0)
-    .filter((c) => !filled.has(c.service_record_id) && !byId.get(c.service_record_id)?.voided_at)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+    .filter((c) => !filled.has(c.service_record_id) && byId.has(c.service_record_id) && !byId.get(c.service_record_id)!.voided_at)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const rx = open[0];
   if (!rx) return null;
   const rec = byId.get(rx.service_record_id);
-  return { recordId: rx.service_record_id, lines: rx.payload.prescription as RxLine[], by: rec?.served_by_name ?? null, at: rec?.served_at ?? rx.created_at };
+  return { more: open.length - 1, recordId: rx.service_record_id, lines: rx.payload.prescription as RxLine[], by: rec?.served_by_name ?? null, at: rec?.served_at ?? rx.created_at };
 }
 
 /** Pharmacy: the prescription to fill. Ticked lines are dispensed (stock goes down). */
@@ -89,6 +90,7 @@ export function PrescriptionCard({ rx, stock, given, onToggle }: { rx: PendingRx
   return (
     <div className="mt-3 flex flex-col gap-2">
       <p className="text-caption text-neutral-700">Prescribed{rx.by ? ` by ${rx.by}` : ""} at {formatTime(rx.at)}. Untick anything you could not give.</p>
+      {rx.more > 0 && <p className="text-caption font-medium text-forest">{rx.more} more prescription{rx.more === 1 ? "" : "s"} after this one. Open this person again after saving.</p>}
       {rx.lines.map((l) => {
         const left = stock.get(l.item_id)?.remaining;
         const out = left !== undefined && left < l.qty;

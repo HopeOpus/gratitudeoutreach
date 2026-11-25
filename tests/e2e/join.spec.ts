@@ -59,5 +59,5 @@ test("signing in to a confidential station asks for the role PIN again", async (
   const phone = await joinStation(a, "444444", "Dr Ifeoma", { rolePin: "404040" });
   const b = await (await browser.newContext()).newPage();
   await signInVolunteer(b, "Dr Ifeoma", phone, { rolePin: "404040" });
-  await expect(b.getByRole("heading", { name: "Medical" })).toBeVisible();
+  await expect(b.getByRole("heading", { name: "General Doctor" })).toBeVisible();
 });

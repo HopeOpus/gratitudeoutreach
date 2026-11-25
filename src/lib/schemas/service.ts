@@ -9,9 +9,31 @@ const outcomes = z.array(z.string().max(60)).max(12).optional();
 export const PRAYER_FOCUS = ["Health", "Family", "Finances", "Job", "Spiritual growth", "Deliverance", "Other"] as const;
 export const COUNSELLING_CATEGORIES = ["Marriage/Family", "Grief", "Addiction", "Mental wellbeing", "Career/Finance", "Spiritual", "Youth", "Other"] as const;
 export const MEDICAL_COMPLAINTS = ["Fever", "Headache", "Body pain", "Cough", "Eye", "Hypertension follow-up", "Diabetes follow-up", "Skin", "Other"] as const;
-export const MEDICAL_TESTS = ["Malaria RDT", "BP", "Sugar (RBS)", "Eye check", "Weight/BMI", "Urinalysis", "Pregnancy test"] as const;
-export const DESIGNATIONS = ["Dr", "Nurse", "Pharm", "Other"] as const;
+export const MEDICAL_TESTS = ["Malaria RDT", "Sugar (RBS)", "Urinalysis", "Pregnancy test", "Blood group", "Genotype", "PCV", "Hepatitis B", "HIV screening", "Typhoid (Widal)"] as const;
+export const DESIGNATIONS = ["Dr", "Nurse", "Optician", "Lab", "Pharm", "Other"] as const;
 
+export const FAITH = ["new_convert", "born_again", "neither"] as const;
+export const HOLY_GHOST = ["already", "today", "not_yet"] as const;
+
+/** Counselling station (kind `prayer`): the shared record only says counselling is done. */
+export const counsellingDoneSchema = z.object({ counselled: z.literal(true), refer_to_station_ids: refer });
+
+/** Spiritual outcomes: confidential kind `spiritual` (Counselling and coordinators). */
+export const spiritualPayloadSchema = z.object({
+  faith: z.enum(FAITH),
+  rededicated: z.boolean(),
+  prayed: z.boolean(),
+  healing: z.boolean(),
+  holy_ghost: z.enum(HOLY_GHOST),
+  tongues: z.boolean(),
+  wants_followup: z.boolean(),
+  join_fellowship: z.boolean(),
+  focus: z.array(z.string().max(40)).max(10),
+  notes,
+});
+export type SpiritualPayload = z.infer<typeof spiritualPayloadSchema>;
+
+/** Before 25 Nov 2026 the Prayer station saved this shape; old records still use it. */
 export const prayerDataSchema = z.object({
   focus: z.array(z.string().max(40)).max(10),
   decision: z.enum(["none", "salvation", "rededication"]),
@@ -73,11 +95,35 @@ export const rxLineSchema = z.object({
 });
 
 const vital = (min: number, max: number) => z.number().min(min).max(max).optional();
-export const medicalPayloadSchema = z.object({
-  vitals: z.object({
-    bp_sys: vital(50, 260), bp_dia: vital(30, 180), pulse: vital(20, 250), temp_c: vital(30, 45),
-    weight_kg: vital(1, 300), rbs_mg_dl: vital(10, 900), height_cm: vital(30, 250),
+export const vitalsSchema = z.object({
+  bp_sys: vital(50, 260), bp_dia: vital(30, 180), pulse: vital(20, 250), temp_c: vital(30, 45),
+  weight_kg: vital(1, 300), rbs_mg_dl: vital(10, 900), height_cm: vital(30, 250),
+});
+const testName = z.string().min(1).max(60);
+
+/** Medical Assistant */
+export const vitalsPayloadSchema = z.object({ vitals: vitalsSchema, designation: z.enum(DESIGNATIONS), notes });
+/** Laboratory: results for tests the doctor asked for (or walk-up tests). */
+export const labPayloadSchema = z.object({
+  lab_results: z.array(z.object({ test: testName, result: z.string().min(1).max(300), abnormal: z.boolean() })).min(1).max(20),
+  designation: z.enum(DESIGNATIONS),
+  notes,
+});
+/** Optician */
+export const eyePayloadSchema = z.object({
+  eye: z.object({
+    va_right: z.string().max(40).optional(), va_left: z.string().max(40).optional(),
+    findings: z.string().max(1000).optional(), outcomes: z.array(z.string().max(60)).max(8),
   }),
+  prescription: z.array(rxLineSchema).max(20).optional(),
+  refer_to_station_ids: refer,
+  designation: z.enum(DESIGNATIONS),
+});
+export const EYE_OUTCOMES = ["Reading glasses given", "Glasses prescribed", "Eye drops needed", "Refer to eye hospital", "No problem found"] as const;
+
+/** General Doctor */
+export const medicalPayloadSchema = z.object({
+  vitals: vitalsSchema,
   complaint: z.array(z.string().max(40)).max(12),
   complaint_text: z.string().max(1000).optional(),
   impression: z.string().max(2000).optional(),
@@ -87,6 +133,11 @@ export const medicalPayloadSchema = z.object({
   designation: z.enum(DESIGNATIONS),
   outcomes,
   prescription: z.array(rxLineSchema).max(20).optional(),
+  tests_requested: z.array(testName).max(20).optional(),
+  minor_surgery: z.enum(["needed", "done"]).optional(),
+  minor_surgery_note: z.string().max(500).optional(),
+  /** Kept here, not in the shared record: going to the Laboratory or Optician is medical detail. */
+  refer_to_station_ids: refer,
   notes,
 });
 export type MedicalPayload = z.infer<typeof medicalPayloadSchema>;
@@ -94,6 +145,8 @@ export type MedicalPayload = z.infer<typeof medicalPayloadSchema>;
 export const pharmacyDataSchema = z.object({
   items: z.array(z.object({ item_id: id, qty: z.number().int().min(1).max(100) })),
   prescription_id: id.optional(),
+  counselling_record_id: id.optional(),
+  override_by: z.string().max(80).optional(),
   outcomes,
   notes,
   refer_to_station_ids: refer,

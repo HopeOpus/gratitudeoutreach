@@ -9,6 +9,8 @@ export type DashboardStats = {
   kpis: {
     registered: number; served_unique: number; services: number; on_site: number; checked_out: number;
     salvations: number; rededications: number; decisions: number; referrals: number; urgent_counselling: number;
+    counselled: number; already_born_again: number; healings: number; hg_baptised_today: number; hg_baptised_before: number; tongues: number;
+    minor_surgery: number; lab_patients: number; optician_patients: number;
     followups: number; volunteers: number; missing_followup_consent: number;
   };
   stations: StationStat[];

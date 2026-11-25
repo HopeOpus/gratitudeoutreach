@@ -57,10 +57,12 @@ export interface LocalRecord {
   _local?: boolean;
 }
 
+export type ConfidentialKind = "medical" | "counselling" | "spiritual";
+
 export interface LocalConfidential {
   service_record_id: string;
   visit_id: string;
-  kind: "medical" | "counselling";
+  kind: ConfidentialKind;
   payload: Record<string, unknown>;
   created_at: string;
 }

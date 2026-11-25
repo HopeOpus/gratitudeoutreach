@@ -236,7 +236,7 @@ export function JoinFlow({ token: initialToken, ended }: { token?: string; ended
             </Field>
             {mode === "register" && (station.kind === "medical" || station.kind === "pharmacy") && (
               <Field label="Designation">
-                <Segmented label="Designation" value={designation} onChange={setDesignation} options={DESIGNATIONS.map((d) => ({ value: d, label: d }))} />
+                <Segmented label="Designation" value={designation} onChange={setDesignation} options={DESIGNATIONS.filter((d) => d !== "Optician" && d !== "Lab").map((d) => ({ value: d, label: d }))} />
               </Field>
             )}
             <Checkbox id="j-ack" checked={ack} onChange={setAck} required label="I agree to keep information confidential" />

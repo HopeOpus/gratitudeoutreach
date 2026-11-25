@@ -11,6 +11,16 @@ async function audit(page: Page, name: string) {
   expect(bad.length, `${name}\n${msg}`).toBe(0);
 }
 
+/** Opens the station form, whether or not the person was served here before. */
+async function startForm(p: Page, button: string) {
+  const first = p.getByRole("button", { name: button });
+  const again = p.getByRole("button", { name: "Record again" });
+  await first.or(again).first().waitFor();
+  if (await first.isVisible()) return first.click();
+  await again.click();
+  await p.getByRole("dialog").getByRole("button", { name: "Record again" }).click();
+}
+
 test("volunteer screens pass axe", async ({ page }) => {
   await page.goto("/join");
   await audit(page, "join");
@@ -23,6 +33,7 @@ test("volunteer screens pass axe", async ({ page }) => {
 });
 
 test("registration and medical forms pass axe", async ({ browser }) => {
+  test.setTimeout(180_000);
   const r = await (await browser.newContext()).newPage();
   await joinStation(r, "111111", "Tobi");
   await r.getByRole("button", { name: /New person/ }).click();
@@ -32,15 +43,23 @@ test("registration and medical forms pass axe", async ({ browser }) => {
   const m = await (await browser.newContext()).newPage();
   await joinStation(m, "444444", "Dr Amina", { rolePin: "404040" });
   await openByCode(m, "TR26-0020");
-  await audit(m, "medical tick list");
-  const more = m.getByRole("button", { name: /More details/ });
-  if (await more.isVisible().catch(() => false)) await more.click();
-  else {
-    await m.getByRole("button", { name: "Record again" }).click();
-    await m.getByRole("dialog").getByRole("button", { name: "Record again" }).click();
-  }
-  await m.getByLabel(/BP systolic/).fill("170");
+  await m.getByRole("heading", { name: "Today" }).waitFor();
+  await audit(m, "doctor profile");
+  await startForm(m, "See patient");
+  await m.getByRole("button", { name: /Save medical check/ }).waitFor();
   await audit(m, "medical form");
+
+  for (const [pin, role, button, save] of [
+    ["131313", "130130", "Record vital signs", "Save vital signs"], ["151515", "150150", "Record test results", "Save and send"],
+    ["141414", "140140", "Record eye check", "Save eye check"], ["222222", undefined, "Start Counselling", "Complete Counselling"],
+  ] as const) {
+    const p = await (await browser.newContext()).newPage();
+    await joinStation(p, pin, "Axe", role ? { rolePin: role } : {});
+    await openByCode(p, "TR26-0300");
+    await startForm(p, button);
+    await p.getByRole("button", { name: new RegExp(save) }).waitFor();
+    await audit(p, button);
+  }
 });
 
 test("admin screens pass axe", async ({ browser }) => {

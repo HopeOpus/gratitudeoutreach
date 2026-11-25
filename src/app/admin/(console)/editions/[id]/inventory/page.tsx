@@ -45,7 +45,7 @@ export default function InventoryPage({ params }: { params: Promise<{ id: string
 
   if (!edition) return <LoadingBlock />;
   const closed = edition.status === "closed";
-  const stockStations = (stations.data ?? []).filter((s) => ["food", "clothing", "medical", "custom"].includes(s.kind!));
+  const stockStations = (stations.data ?? []).filter((s) => ["food", "clothing", "medical", "pharmacy", "optician", "laboratory", "custom"].includes(s.kind!));
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Inventory" sub={`${edition.name} · stock goes down automatically as stations record services.`}

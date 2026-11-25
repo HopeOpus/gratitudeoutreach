@@ -4,12 +4,12 @@
  * Each station gets a short list of plain outcomes ("Prayed for", "Received
  * food"). Ticks are turned into the same service record shape the detailed
  * forms produce, so follow-ups, inventory, the dashboard and exports keep
- * working. Summaries stay free of confidential content (DataModel §3): medical
- * ticks other than "referred" go into the confidential record only.
+ * working. Summaries stay free of confidential content (DataModel §3). The
+ * medical stations and Counselling use full forms (components/station/forms).
  */
 import type { StationKind } from "@/lib/stations";
 import type { LocalInventory } from "@/lib/offline/db";
-import { counsellingSummary, medicalSummary } from "@/lib/summary";
+import { counsellingSummary } from "@/lib/summary";
 
 export type Tick = { id: string; label: string; short: string; defaultOn?: boolean };
 
@@ -19,26 +19,10 @@ export type QuickPayload = {
   confidential?: { kind: "medical" | "counselling"; payload: Record<string, unknown> } | null;
 };
 
-const PRAYER: Tick[] = [
-  { id: "prayed", label: "Has been prayed for", short: "Prayed for", defaultOn: true },
-  { id: "counselled", label: "Has been counselled", short: "Counselled" },
-  { id: "healing", label: "Received healing", short: "Healing" },
-  { id: "salvation", label: "Gave their life to Christ", short: "Salvation" },
-  { id: "rededication", label: "Rededicated their life", short: "Rededication" },
-  { id: "followup", label: "Wants a follow-up visit or call", short: "Wants follow-up" },
-];
-
-const MEDICAL: Tick[] = [
-  { id: "seen", label: "Seen by the medical team", short: "Seen", defaultOn: true },
-  { id: "referred", label: "Referred to a hospital or clinic", short: "Referred" },
-];
-
 const COUNSELLING: Tick[] = [
   { id: "counselled", label: "Has been counselled", short: "Counselled", defaultOn: true },
   { id: "followup", label: "Needs a follow-up", short: "Follow-up" },
 ];
-
-const PHARMACY: Tick[] = [{ id: "given", label: "Medicine given", short: "Medicine given", defaultOn: true }];
 
 const GENERIC: Tick[] = [{ id: "served", label: "Has been served", short: "Served", defaultOn: true }];
 
@@ -52,9 +36,6 @@ export function itemChoicesFor(kind: StationKind, items: LocalInventory[]): Loca
 
 export function ticksFor(kind: StationKind): Tick[] {
   switch (kind) {
-    case "prayer": return PRAYER;
-    case "medical": return MEDICAL;
-    case "pharmacy": return PHARMACY;
     case "counselling": return COUNSELLING;
     case "food": return FOOD;
     case "clothing": return CLOTHING;
@@ -73,48 +54,38 @@ function truncate(s: string, n = 140) {
 /** One medicine on a prescription. `name` is kept so Pharmacy can read it even if stock is renamed. */
 export type RxLine = { item_id: string; name: string; qty: number; dosage?: string };
 
-export type QuickExtra = {
-  /** Medical: medicines prescribed. A non-empty list also refers the person to Pharmacy. */
-  prescription?: RxLine[];
-  pharmacyStationId?: string | null;
-  /** Pharmacy: what was handed over, and the Medical record it fills. */
-  dispensed?: { item_id: string; qty: number }[];
-  prescriptionId?: string | null;
+export type PharmacyInput = {
+  /** What was handed over, and the medical record it fills (null = no prescription). */
+  dispensed: { item_id: string; qty: number }[];
+  prescriptionId: string | null;
+  counsellingRecordId: string | null;
+  /** Station Lead approval when Counselling is not done. */
+  override?: string;
 };
 
+/** Pharmacy closes the step with medicine given, not available, or none needed. The summary never says which. */
+export function buildPharmacyPayload(p: PharmacyInput): QuickPayload {
+  const given = p.dispensed.filter((l) => l.qty > 0);
+  const outcome = given.length ? "Medicine given" : p.prescriptionId ? "Medicine not available" : "No medicine needed";
+  return {
+    summary: "Pharmacy completed",
+    data: {
+      items: given, outcomes: [outcome],
+      ...(p.prescriptionId ? { prescription_id: p.prescriptionId } : {}),
+      ...(p.counsellingRecordId ? { counselling_record_id: p.counsellingRecordId } : {}),
+      ...(p.override ? { override_by: p.override } : {}),
+    },
+  };
+}
+
 /** Turns ticked ids (and optional stock items given) into a service record. `done` must not be empty. */
-export function buildQuickPayload(kind: StationKind, done: string[], items: LocalInventory[] = [], pickedItemIds: string[] = [], extra: QuickExtra = {}): QuickPayload {
+export function buildQuickPayload(kind: StationKind, done: string[], items: LocalInventory[] = [], pickedItemIds: string[] = []): QuickPayload {
   const ticks = ticksFor(kind).filter((t) => done.includes(t.id));
   if (!ticks.length) throw new Error("Tick at least one thing that was done.");
   const has = (id: string) => done.includes(id);
   const outcomes = ticks.map((t) => t.short);
 
   switch (kind) {
-    case "prayer": {
-      const decision = has("salvation") ? "salvation" : has("rededication") ? "rededication" : "none";
-      return {
-        summary: truncate(outcomes.join(" · ")),
-        data: { focus: has("healing") ? ["Health"] : [], decision, wants_followup: has("followup"), join_fellowship: false, outcomes },
-      };
-    }
-    case "medical": {
-      const referred = has("referred");
-      const rx = (extra.prescription ?? []).filter((l) => l.qty > 0);
-      const toPharmacy = rx.length > 0 && extra.pharmacyStationId ? [extra.pharmacyStationId] : [];
-      return {
-        // The timeline never names medicines (DataModel §3); the prescription lives in the confidential record.
-        summary: medicalSummary({ referred }),
-        data: { tests: [], referred, items: [], ...(referred ? { referral_urgency: "routine" } : {}), ...(toPharmacy.length ? { refer_to_station_ids: toPharmacy } : {}) },
-        confidential: { kind: "medical", payload: { vitals: {}, complaint: [], dispensed: [], designation: "Other", outcomes, ...(rx.length ? { prescription: rx } : {}) } },
-      };
-    }
-    case "pharmacy": {
-      const given = (extra.dispensed ?? []).filter((l) => l.qty > 0);
-      return {
-        summary: "Medicine given",
-        data: { items: given, outcomes, ...(extra.prescriptionId ? { prescription_id: extra.prescriptionId } : {}) },
-      };
-    }
     case "counselling":
       return {
         summary: counsellingSummary(),

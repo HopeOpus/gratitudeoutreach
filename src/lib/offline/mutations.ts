@@ -1,6 +1,7 @@
 "use client";
 import { uuidv7 } from "uuidv7";
-import { db, getMeta, setMeta, type InsertTable, type LocalNeed, type LocalRecord, type LocalVisit, type OutboxOp } from "./db";
+import { compulsoryStations } from "@/lib/journey";
+import { db, getMeta, setMeta, type ConfidentialKind, type InsertTable, type LocalNeed, type LocalRecord, type LocalVisit, type OutboxOp } from "./db";
 import { getSession, type CodeBlock, type VolunteerSession } from "./session";
 import { pushOutbox, refreshCounts } from "./sync";
 import { firstName, normalizePhone } from "@/lib/utils";
@@ -86,6 +87,13 @@ export async function registerPerson(input: {
     visit_id: visitId, station_id, edition_id: s.edition.id, state: "pending", source: "registration", state_at: at, declined_reason: null, updated_at: at,
   }));
 
+  // Medical Assistant, Counselling and Pharmacy are for everyone. The server adds
+  // the same needs when the visit syncs, so these are local only.
+  for (const st of compulsoryStations(await d.stations.toArray())) {
+    if (input.needStationIds.includes(st.id)) continue;
+    needs.push({ visit_id: visitId, station_id: st.id, edition_id: s.edition.id, state: "pending", source: "registration", state_at: at, declined_reason: null, updated_at: at });
+  }
+
   await d.transaction("rw", [d.visits, d.needs, d.outbox], async () => {
     await d.visits.put(visit);
     if (needs.length) await d.needs.bulkPut(needs);
@@ -146,7 +154,7 @@ export async function recordService(input: {
   visit: LocalVisit;
   summary: string;
   data: Record<string, unknown>;
-  confidential?: { kind: "medical" | "counselling"; payload: Record<string, unknown> } | null;
+  confidential?: { kind: ConfidentialKind; payload: Record<string, unknown> } | null;
   flags?: { kind: string; scope: "all" | "medical" | "counselling" | "leads"; text: string }[];
 }): Promise<string> {
   const s = await requireSession();
@@ -182,6 +190,15 @@ export async function recordService(input: {
       await d.confidential.put({ service_record_id: id, visit_id: input.visit.id, kind: input.confidential.kind, payload: input.confidential.payload, created_at: at });
     }
     await d.needs.put({ visit_id: input.visit.id, station_id: s.station.id, edition_id: s.edition.id, state: "served", source: "walk_in", state_at: at, declined_reason: null, updated_at: at });
+    // Referrals show on this phone straight away; the server makes the real ones.
+    const referTo = [input.data.refer_to_station_ids, input.confidential?.payload.refer_to_station_ids].flatMap((x) => (Array.isArray(x) ? (x as string[]) : []));
+    for (const stationId of referTo) {
+      const cur = await d.needs.get([input.visit.id, stationId]);
+      await d.needs.put({
+        visit_id: input.visit.id, station_id: stationId, edition_id: s.edition.id, state: cur?.state === "pending" ? "pending" : "referred",
+        source: `referral:${s.station.id}`, state_at: at, declined_reason: null, updated_at: at,
+      });
+    }
     for (const it of items) {
       const inv = await d.inventory.get(it.item_id);
       if (inv) await d.inventory.update(it.item_id, { remaining: inv.remaining - it.qty });

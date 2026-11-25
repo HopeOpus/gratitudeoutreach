@@ -33,7 +33,7 @@ insert into t.ids select 'drug', id from public.inventory_items where name = 'Pa
 
 select plan(10);
 
-select is((select name from public.stations where kind = 'prayer' and edition_id = t.id('tr')), 'Prayer & Counselling', 'Prayer and Counselling are one station');
+select is((select name from public.stations where kind = 'prayer' and edition_id = t.id('tr')), 'Counselling', 'the compulsory station is called Counselling');
 select ok(not (select enabled from public.stations where kind = 'counselling' and edition_id = t.id('tr')), 'the private-notes Counselling station is off by default');
 
 select is(t.val(t.id('pharm2'), $$select public.join_station('777777', 'No Pin', '+2348100000001')$$)->>'error', 'invalid_role_pin', 'Pharmacy needs the role PIN');
@@ -49,7 +49,7 @@ select lives_ok($$select t.run(t.id('med'), format($q$
   insert into public.confidential_records (service_record_id, edition_id, visit_id, kind, payload)
   values (%L, app.session_edition(), %L, 'medical', jsonb_build_object('prescription', jsonb_build_array(jsonb_build_object('item_id', %L, 'qty', 2, 'dosage', '1 tab twice daily'))));
 $q$, t.id('rx_rec'), t.id('rx_visit'), t.id('pharm_station'), t.id('rx_rec'), t.id('rx_visit'), t.id('drug')))$$, 'Medical saves a prescription and refers to Pharmacy');
-select is((select state::text from public.visit_needs where visit_id = t.id('rx_visit') and station_id = t.id('pharm_station')), 'referred', 'the person is now waiting at Pharmacy');
+select is((select state::text from public.visit_needs where visit_id = t.id('rx_visit') and station_id = t.id('pharm_station')), 'pending', 'the person is waiting at Pharmacy');
 
 create function t.cnt(p_uid uuid, p_sql text) returns bigint language plpgsql as $$
 declare v bigint; begin perform t.login(p_uid); execute 'select count(*) from (' || p_sql || ') x' into v; execute 'reset role'; return v; end $$;
@@ -58,6 +58,13 @@ select is(t.cnt(t.id('pharm'), format($$select 1 from public.confidential_record
 select is(t.cnt(t.id('pharm'), $$select 1 from public.confidential_records where kind = 'counselling'$$), 0::bigint, 'Pharmacy cannot read counselling notes');
 select is(t.cnt(t.id('food'), $$select 1 from public.confidential_records where kind = 'medical'$$), 0::bigint, 'Food cannot read prescriptions');
 
+-- Counselling first (the gate itself is tested in 08)
+insert into t.ids values ('couns', t.new_user());
+select t.val(t.id('couns'), $$select public.join_station('222222', 'Ngozi', '+2348100000009')$$);
+select t.run(t.id('couns'), format($q$
+  insert into public.service_records (id, edition_id, visit_id, station_id, session_id, served_by_name, summary, data, served_at)
+  values (gen_random_uuid(), app.session_edition(), %L, app.session_station(), app.session_id(), 'Ngozi', 'Counselling completed', '{"counselled":true}', now())
+$q$, t.id('rx_visit')));
 -- Pharmacy dispenses: stock goes down
 create temp table before as select remaining from public.inventory_items where id = t.id('drug');
 select t.run(t.id('pharm'), format($q$

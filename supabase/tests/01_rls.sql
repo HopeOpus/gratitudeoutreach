@@ -167,9 +167,9 @@ select ok(t.cnt(t.id('med'), $$select 1 from public.confidential_records where k
 select is(t.cnt(t.id('med'), $$select 1 from public.confidential_records where kind = 'counselling'$$), 0::bigint, 'medical: CANNOT read counselling payloads');
 select ok(t.cnt(t.id('couns'), $$select 1 from public.confidential_records where kind = 'counselling'$$) > 0, 'counselling: reads counselling confidential');
 select is(t.cnt(t.id('couns'), $$select 1 from public.confidential_records where kind = 'medical'$$), 0::bigint, 'counselling: CANNOT read medical payloads');
-select is(t.cnt(t.id('prayer'), 'select 1 from public.confidential_records'), 0::bigint, 'prayer: cannot read confidential');
-select is(t.cnt(t.id('coord'), 'select 1 from public.confidential_records'), 0::bigint, 'coordinator: no confidential by default');
-select is(t.cnt(t.id('super'), 'select 1 from public.confidential_records'), 0::bigint, 'super admin: no confidential by default');
+select is(t.cnt(t.id('prayer'), $$select 1 from public.confidential_records where kind <> 'spiritual'$$), 0::bigint, 'counselling station: reads no medical or private counselling notes');
+select is(t.cnt(t.id('coord'), $$select 1 from public.confidential_records where kind <> 'spiritual'$$), 0::bigint, 'coordinator: no medical or counselling notes by default');
+select is(t.cnt(t.id('super'), $$select 1 from public.confidential_records where kind <> 'spiritual'$$), 0::bigint, 'super admin: no medical or counselling notes by default');
 select throws_ok($$select t.val(t.id('coord'), $q$select public.break_glass('medical', t.id('med_visit'), 'short')$q$)$$, '22023', null, 'break-glass needs a real reason');
 select ok(t.val(t.id('coord'), $q$select public.break_glass('medical', t.id('med_visit'), 'Hospital requested referral details')$q$) ? 'expires_at', 'coordinator break-glass granted');
 select ok(t.cnt(t.id('coord'), $$select 1 from public.confidential_records where visit_id = t.id('med_visit') and kind = 'medical'$$) > 0, 'break-glass: medical record visible for that visit');

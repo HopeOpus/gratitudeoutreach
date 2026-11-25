@@ -4,11 +4,14 @@ import { ArrowLeft, MoreVertical, AlertTriangle, CornerDownRight, Ban, Pencil, C
 import type { VolunteerSession } from "@/lib/offline/session";
 import { useInventory, useStations, useVisit, useVisitConfidential, useVisitFlags, useVisitNeeds, useVisitRecords } from "@/lib/offline/hooks";
 import { setNeed, patchBeneficiary, replaceCard, checkOut, recordService, undoService } from "@/lib/offline/mutations";
-import { ticksFor, defaultTicks, buildQuickPayload, itemChoicesFor } from "@/lib/quick-ticks";
-import type { StationKind } from "@/lib/stations";
+import { ticksFor, defaultTicks, buildQuickPayload, buildPharmacyPayload, itemChoicesFor } from "@/lib/quick-ticks";
+import { isMedicalKind, type StationKind } from "@/lib/stations";
+import { canSeeStation, counsellingRecord, counsellingRequired, isOptionalNeed, missingBefore, nextStop } from "@/lib/journey";
+import { spiritualLine } from "@/lib/spiritual";
+import { medicalEntries } from "@/lib/medical";
+import { MedicalRecord } from "../medical-record";
 import { QrSlip, printSlip } from "../qr-slip";
-import { useDrugs, PrescriptionEditor, PrescriptionCard, pendingPrescription } from "../rx";
-import type { RxLine } from "@/lib/quick-ticks";
+import { useDrugs, PrescriptionCard, pendingPrescription } from "../rx";
 import { volunteerClient } from "@/lib/supabase/volunteer";
 import { navigate, back } from "../nav";
 import { useScan } from "../scan-context";
@@ -25,6 +28,11 @@ import { parseCardPayload } from "@/lib/cards";
 import { abnormalVitals } from "@/lib/vitals";
 import { isConfidentialKind } from "@/lib/stations";
 import type { LocalFlag } from "@/lib/offline/db";
+
+/** Stations that record with a full form, and what the button says. The rest use the tick list. */
+const FORM_ACTION: Partial<Record<StationKind, string>> = {
+  medical_assistant: "Record vital signs", medical: "See patient", optician: "Record eye check", laboratory: "Record test results", prayer: "Start Counselling",
+};
 
 const DECLINE_REASONS = ["Out of stock", "Person left", "Not eligible today", "Person declined", "Other"];
 
@@ -43,7 +51,7 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
   const [ticked, setTicked] = useState<string[] | null>(null);
   const [pickedItems, setPickedItems] = useState<string[]>([]);
   const [savingTicks, setSavingTicks] = useState(false);
-  const [rxLines, setRxLines] = useState<RxLine[]>([]);
+  const [gateOverride, setGateOverride] = useState<string | null>(null);
   const [givenIds, setGivenIds] = useState<string[] | null>(null);
   const drugs = useDrugs(stations);
 
@@ -61,7 +69,7 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
   }, [records]);
 
   const stationById = useMemo(() => new Map(stations.map((s) => [s.id, s])), [stations]);
-  const serviceStations = stations.filter((s) => s.is_service && s.enabled);
+  const serviceStations = stations.filter((s) => s.is_service && s.enabled && canSeeStation(session.station.kind, s));
   const needByStation = useMemo(() => new Map(needs.map((n) => [n.station_id, n])), [needs]);
   const myStation = session.station;
   const isReg = myStation.kind === "registration";
@@ -76,16 +84,26 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
   const referralFlag = flags.find((f) => f.kind === "referral" && f.text.includes(`to ${myStation.name}`));
   const otherFlags = flags.filter((f) => f !== referralFlag);
   const myConfidential = isConfidentialKind(myStation.kind) ? confidential.filter((c) => c.kind === myStation.kind) : [];
-  const lastVitals = myStation.kind === "medical" ? myConfidential.map((c) => c.payload.vitals as Record<string, number> | undefined).find(Boolean) : undefined;
+  const isMedTeam = isMedicalKind(myStation.kind);
+  const lastVitals = isMedTeam ? medicalEntries(confidential, records).map((e) => e.payload.vitals).find((v) => v && Object.keys(v).length > 0) : undefined;
 
-  const isMed = myStation.kind === "medical";
+  const formAction = FORM_ACTION[myStation.kind as StationKind];
+  const ctx = { stations, needs, records };
+  const next = nextStop(ctx, myStation.kind);
+  const missing = missingBefore(myStation.kind, ctx);
+  // Sent back here (for example with lab results): serve again without the "already served" step.
+  const waitingHere = myNeed?.state === "pending" || myNeed?.state === "referred";
   const isPharm = myStation.kind === "pharmacy";
   const pharmacyIds = new Set(stations.filter((s) => s.kind === "pharmacy").map((s) => s.id));
+  const counselled = counsellingRecord(records, stations);
+  const counselling = stations.find((s) => s.enabled && s.kind === "prayer") ?? stations.find((s) => s.enabled && s.kind === "counselling");
+  const blocked = isPharm && counsellingRequired(stations) && !counselled && !gateOverride;
   const pendingRx = isPharm ? pendingPrescription(confidential, records, pharmacyIds) : null;
   const drugStock = new Map((drugs ?? []).map((d) => [d.id, d]));
   const currentGiven = givenIds ?? (pendingRx ? pendingRx.lines.filter((l) => (drugStock.get(l.item_id)?.remaining ?? 1) > 0).map((l) => l.item_id) : []);
   // Pharmacy can fill a new prescription even after an earlier visit to the counter.
-  const showTicks = !isReg && !readOnly && inventory !== undefined && (!lastMine || !!pendingRx);
+  const done = !!lastMine && !pendingRx && !(formAction && waitingHere);
+  const showTicks = !isReg && !readOnly && !formAction && !blocked && inventory !== undefined && !done;
 
   const quickTicks = ticksFor(myStation.kind as StationKind);
   const currentTicks = ticked ?? defaultTicks(myStation.kind as StationKind);
@@ -93,15 +111,15 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
   const saveTicks = async () => {
     setSavingTicks(true);
     try {
-      const extra = isMed
-        ? { prescription: rxLines, pharmacyStationId: stations.find((st) => st.kind === "pharmacy" && st.enabled)?.id ?? null }
-        : isPharm
-          ? { dispensed: (pendingRx?.lines ?? []).filter((l) => currentGiven.includes(l.item_id)).map((l) => ({ item_id: l.item_id, qty: l.qty })), prescriptionId: pendingRx?.recordId ?? null }
-          : {};
-      const p = buildQuickPayload(myStation.kind as StationKind, currentTicks, inventory ?? [], pickedItems, extra);
+      const p = isPharm
+        ? buildPharmacyPayload({
+            dispensed: (pendingRx?.lines ?? []).filter((l) => currentGiven.includes(l.item_id)).map((l) => ({ item_id: l.item_id, qty: l.qty })),
+            prescriptionId: pendingRx?.recordId ?? null, counsellingRecordId: counselled?.id ?? null, override: counselled ? undefined : gateOverride ?? undefined,
+          })
+        : buildQuickPayload(myStation.kind as StationKind, currentTicks, inventory ?? [], pickedItems);
       const id = await recordService({ visit, ...p });
       vibrate(30);
-      toast.saved(isMed && rxLines.length ? `Saved · ${name} sent to Pharmacy` : `Saved · ${myStation.name} for ${name}`, () => {
+      toast.saved(`Saved · ${myStation.name} for ${name}`, () => {
         void undoService(id).then(() => toast.info("Undone"), (e) => toast.error(errorMessage(e)));
       });
       navigate("/s", { replace: true });
@@ -143,6 +161,9 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
       <div className="flex flex-col gap-2 px-4">
         {referralFlag && <AlertBanner tone="info"><CornerDownRight className="mr-1 inline size-4" aria-hidden />{referralFlag.text} at {formatTime(referralFlag.created_at)}</AlertBanner>}
         {otherFlags.map((f) => <FlagBanner key={f.id} flag={f} />)}
+        {next && next.id !== myStation.id && <AlertBanner tone="info">Next stop: <span className="font-medium">{next.name}</span></AlertBanner>}
+        {!next && <AlertBanner tone="success">All steps done.</AlertBanner>}
+        {!readOnly && !blocked && missing.length > 0 && !done && <AlertBanner tone="warning">Not done yet: {missing.map((m) => m.name).join(", ")}</AlertBanner>}
         {lastVitals && abnormalVitals(lastVitals).length > 0 && (
           <AlertBanner tone="warning">Earlier reading: {abnormalVitals(lastVitals).join(", ")}</AlertBanner>
         )}
@@ -156,15 +177,29 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
         </div>
       </section>
 
+      {blocked && !readOnly && (
+        <section className="mx-4 mb-4 flex flex-col gap-3 rounded-lg border-2 border-danger bg-danger-bg p-4" aria-labelledby="gate-h">
+          <h3 id="gate-h" className="inline-flex items-center gap-2 text-h3 font-medium text-danger"><Lock className="size-5" aria-hidden /> Counselling not completed</h3>
+          <p className="text-body text-ink">{name} must finish Counselling before Pharmacy can attend to them.{typeof navigator !== "undefined" && !navigator.onLine ? " This phone is offline, so it may not know yet." : ""}</p>
+          {counselling && (
+            <Button size="lg" block onClick={async () => { await setNeed(visit, counselling.id, "referred"); toast.saved(`${name} sent to ${counselling.name}`); navigate("/s", { replace: true }); }}>
+              <CornerDownRight className="size-5" /> Send to {counselling.name}
+            </Button>
+          )}
+          <Button variant="secondary" block onClick={() => setSheet("override")}>Station Lead override</Button>
+        </section>
+      )}
+      {gateOverride && !counselled && <AlertBanner tone="warning" className="mx-4 mb-4">Station Lead allowed this without Counselling. It will be reviewed.</AlertBanner>}
+
       {showTicks && (
         <section className="mx-4 mb-4 rounded-lg border-2 border-leaf bg-white p-4" aria-labelledby="tick-h">
-          <h3 id="tick-h" className="text-h3 font-medium text-forest">Tick what was done at {myStation.name}</h3>
-          <div className="mt-3 flex flex-col gap-2">
+          <h3 id="tick-h" className="text-h3 font-medium text-forest">{isPharm ? `${myStation.name}: prescription` : `Tick what was done at ${myStation.name}`}</h3>
+          {!isPharm && <div className="mt-3 flex flex-col gap-2">
             {quickTicks.map((t) => (
               <Checkbox key={t.id} id={`tick-${t.id}`} checked={currentTicks.includes(t.id)} label={t.label}
                 onChange={(on) => setTicked(on ? [...currentTicks, t.id] : currentTicks.filter((x) => x !== t.id))} />
             ))}
-          </div>
+          </div>}
           {itemChoices.length > 0 && currentTicks.length > 0 && (
             <div className="mt-3">
               <p className="mb-2 text-label text-neutral-700">What did they get? (optional)</p>
@@ -178,19 +213,18 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
               </ChipGroup>
             </div>
           )}
-          {isMed && drugs && <PrescriptionEditor drugs={drugs} lines={rxLines} onChange={setRxLines} />}
           {isPharm && (pendingRx ? (
             <PrescriptionCard rx={pendingRx} stock={drugStock} given={currentGiven}
               onToggle={(id, on) => setGivenIds(on ? [...currentGiven, id] : currentGiven.filter((x) => x !== id))} />
           ) : (
-            <p className="mt-3 rounded-md bg-neutral-50 p-3 text-body text-neutral-700">No prescription from Medical for {name} yet. If they were sent here, ask them to wait a moment for it to sync.</p>
+            <p className="mt-3 rounded-md bg-neutral-50 p-3 text-body text-neutral-700">No prescription for {name}. If a doctor saw them, wait a moment for it to sync. Otherwise tap “No medicine needed” to finish this step.</p>
           ))}
           {!isPharm && <button type="button" onClick={() => navigate(`/s/p/${visit.id}/serve`)} className="mt-3 inline-flex min-h-12 items-center gap-1 text-label font-medium text-leaf-700 underline cursor-pointer">
             <ListPlus className="size-4" aria-hidden /> More details (full form)
           </button>}
         </section>
       )}
-      {!isReg && lastMine && !pendingRx && (
+      {!isReg && done && lastMine && (
         <section className="mx-4 mb-4 flex items-start gap-3 rounded-lg bg-leaf-50 p-4" aria-label={`Done at ${myStation.name}`}>
           <CheckCircle2 className="mt-0.5 size-6 shrink-0 text-leaf-600" aria-hidden />
           <div>
@@ -212,13 +246,14 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
             </div>
           </li>
         </ol>
-        {isConfidentialKind(myStation.kind) && myConfidential.length > 0 && (
+        {isMedTeam && !blocked && <div className="mt-3"><MedicalRecord confidential={confidential} records={records} stations={stations} /></div>}
+        {myStation.kind === "prayer" && <SpiritualCard rows={confidential.filter((c) => c.kind === "spiritual" && records.some((r) => r.id === c.service_record_id)).map((c) => c.payload)} />}
+        {!isMedTeam && isConfidentialKind(myStation.kind) && myConfidential.length > 0 && (
           <Card className="mt-3 border-confidential/20 bg-confidential-bg p-3">
             <p className="mb-1 inline-flex items-center gap-1 text-label font-medium text-confidential"><Lock className="size-4" aria-hidden /> Private {myStation.kind} notes</p>
             {myConfidential.map((c) => (
               <p key={c.service_record_id} className="text-body text-ink">
-                {myStation.kind === "counselling" ? String(c.payload.notes ?? "") :
-                  [((c.payload.complaint as string[] | undefined) ?? []).join(", "), c.payload.impression as string | undefined].filter(Boolean).join(" · ")}
+                {String(c.payload.notes ?? "")}
               </p>
             ))}
             <LockedNote kind={myStation.kind as "medical" | "counselling"} />
@@ -231,17 +266,19 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
           {isReg ? (
             <Button size="lg" block onClick={() => setSheet("needs")}><ClipboardPen className="size-5" /> Update needs</Button>
           ) : (
-            lastMine && !pendingRx ? (
-              <Button size="lg" block variant="secondary" onClick={startServe}>Record again</Button>
+            blocked ? null : done ? (
+              isPharm ? null : <Button size="lg" block variant="secondary" onClick={startServe}>Record again</Button>
+            ) : formAction ? (
+              <Button size="lg" block onClick={() => navigate(`/s/p/${visit.id}/serve`)}><ClipboardPen className="size-5" /> {formAction}</Button>
             ) : (
-              <Button size="lg" block loading={savingTicks} disabled={currentTicks.length === 0 || inventory === undefined} onClick={() => void saveTicks()}>
-                <CheckCircle2 className="size-5" /> Save
+              <Button size="lg" block loading={savingTicks} disabled={(!isPharm && currentTicks.length === 0) || inventory === undefined} onClick={() => void saveTicks()}>
+                <CheckCircle2 className="size-5" /> {!isPharm ? "Save" : !pendingRx ? "No medicine needed" : currentGiven.length ? "Give medicine" : "Medicine not available"}
               </Button>
             )
           )}
           <div className="flex gap-2">
             <Button variant="secondary" className="flex-1" onClick={() => setSheet("refer")}><CornerDownRight className="size-5" /> Refer</Button>
-            {!isReg && myNeed?.state !== "served" && (
+            {!isReg && myNeed?.state !== "served" && !isPharm && myStation.kind !== "prayer" && (
               <Button variant="secondary" className="flex-1" onClick={() => setSheet("decline")}><Ban className="size-5" /> Not available</Button>
             )}
           </div>
@@ -291,14 +328,24 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
       </BottomSheet>
 
       <LeadOverrideSheet open={sheet === "override"} onClose={() => setSheet(null)} session={session}
-        onApproved={(token) => { setOverride(visit.id, token); setSheet(null); navigate(`/s/p/${visit.id}/serve`); }} />
+        onApproved={(token) => { if (isPharm) { setGateOverride(token); setSheet(null); return; } setOverride(visit.id, token); setSheet(null); navigate(`/s/p/${visit.id}/serve`); }} />
       <EditSheet open={sheet === "edit"} onClose={() => setSheet(null)} visit={visit} />
       <ReplaceCardSheet open={sheet === "card"} onClose={() => setSheet(null)} visitId={visit.id} prefix={session.edition.code_prefix}
         onReplace={async (code) => { await replaceCard(visit, code); setSheet(null); toast.saved(`New card ${code} for ${name}`); }} />
       {visit.card_code && <QrSlip code={visit.card_code} firstName={name} eventName={session.edition.name} />}
-      <NeedsSheet open={sheet === "needs"} onClose={() => setSheet(null)} stations={serviceStations} active={needByStation}
+      <NeedsSheet open={sheet === "needs"} onClose={() => setSheet(null)} stations={stations.filter(isOptionalNeed)} active={needByStation}
         onToggle={async (stationId, on) => { await setNeed(visit, stationId, on ? "pending" : "declined", on ? undefined : "Removed at registration"); }} />
     </div>
+  );
+}
+
+function SpiritualCard({ rows }: { rows: Record<string, unknown>[] }) {
+  if (!rows.length) return null;
+  return (
+    <Card className="mt-3 border-confidential/20 bg-confidential-bg p-3">
+      <p className="mb-1 inline-flex items-center gap-1 text-label font-medium text-confidential"><Lock className="size-4" aria-hidden /> Counselling record</p>
+      {rows.map((p, i) => <p key={i} className="text-body text-ink">{spiritualLine(p)}</p>)}
+    </Card>
   );
 }
 

@@ -1,4 +1,5 @@
 "use client";
+import { compulsoryStations, isOptionalNeed } from "@/lib/journey";
 import { useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,7 +29,8 @@ type Dup = ExistingBeneficiary & { last_edition_name: string | null; last_visit_
 export function RegisterView({ session, initialCard, onCardUsed }: { session: VolunteerSession; initialCard: string | null; onCardUsed: () => void }) {
   const { openScanner } = useScan();
   const stations = useStations();
-  const serviceStations = stations.filter((s) => s.is_service && s.enabled);
+  const serviceStations = stations.filter(isOptionalNeed);
+  const everyone = compulsoryStations(stations);
   const [card, setCard] = useState<string | null>(null);
   const [cardOwner, setCardOwner] = useState<LocalVisit | null>(null);
   const [cardProblem, setCardProblem] = useState<string | null>(null);
@@ -147,6 +149,7 @@ export function RegisterView({ session, initialCard, onCardUsed }: { session: Vo
         <div className="flex flex-1 flex-col">
           <div className="flex flex-1 flex-col gap-3 p-4">
             <h2 className="text-h2 font-medium text-forest">What does {firstName(details?.full_name)} need?</h2>
+            {everyone.length > 0 && <AlertBanner tone="info">Everyone also goes to {everyone.map((s) => s.name).join(", ")}. No need to tick those.</AlertBanner>}
             <div className="grid grid-cols-2 gap-2" role="group" aria-label="Needs">
               {serviceStations.map((st) => {
                 const on = needs.includes(st.id);
@@ -162,7 +165,7 @@ export function RegisterView({ session, initialCard, onCardUsed }: { session: Vo
             </div>
           </div>
           <div className="sticky bottom-0 border-t border-neutral-100 bg-white p-3 safe-bottom">
-            {needs.length === 0 && <p className="mb-2 text-center text-caption text-neutral-500">Tap every need that applies</p>}
+            {needs.length === 0 && <p className="mb-2 text-center text-caption text-neutral-500">Optional. Tap every need that applies</p>}
             <Button size="lg" block onClick={() => setStep(3)}>Next <ArrowRight className="size-5" /></Button>
           </div>
         </div>

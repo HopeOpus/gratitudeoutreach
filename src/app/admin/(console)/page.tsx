@@ -72,8 +72,14 @@ function Dashboard({ editionId, closed, live, name }: { editionId: string; close
         <KpiTile label="Served (unique)" value={formatNumber(k.served_unique)} hint={k.registered ? `${Math.round((k.served_unique / k.registered) * 100)}% of registered` : undefined} />
         <KpiTile label="Services delivered" value={formatNumber(k.services)} />
         <KpiTile label="On site" value={formatNumber(k.on_site)} />
-        <KpiTile label="Decisions" value={formatNumber(k.decisions)} hint={`${k.salvations} salvation · ${k.rededications} rededication`} />
+        <KpiTile label="Decisions" value={formatNumber(k.decisions)} hint={`${k.salvations} new convert · ${k.rededications} rededication`} />
         <KpiTile label="Medical referrals" value={formatNumber(k.referrals)} />
+        <KpiTile label="Counselled" value={formatNumber(k.counselled)} hint={`${k.already_born_again} already born again`} />
+        <KpiTile label="Received healing" value={formatNumber(k.healings)} />
+        <KpiTile label="Holy Ghost baptism" value={formatNumber(k.hg_baptised_today)} hint={`new today · ${k.hg_baptised_before} already`} />
+        <KpiTile label="Speak in tongues" value={formatNumber(k.tongues)} />
+        <KpiTile label="Laboratory / Optician" value={`${formatNumber(k.lab_patients)} / ${formatNumber(k.optician_patients)}`} />
+        <KpiTile label="Minor surgery" value={formatNumber(k.minor_surgery)} hint="needed or done" />
       </section>
 
       <section aria-label="Stations" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">

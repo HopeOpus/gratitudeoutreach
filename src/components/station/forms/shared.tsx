@@ -5,6 +5,7 @@ import type { LocalStation } from "@/lib/offline/db";
 import { Chip, ChipGroup } from "@/components/ui/chip";
 import { Textarea } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { isPrivateKind } from "@/lib/stations";
 import { cn } from "@/lib/utils";
 
 export function Section({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
@@ -22,7 +23,7 @@ export function MoreOptions({ notes, setNotes, refer, setRefer, stations, curren
   stations: LocalStation[]; currentStationId: string; notesLabel?: string;
 }) {
   const [open, setOpen] = useState(refer.length > 0 || !!notes);
-  const options = stations.filter((s) => s.is_service && s.enabled && s.id !== currentStationId);
+  const options = stations.filter((s) => s.is_service && s.enabled && !isPrivateKind(s.kind) && s.id !== currentStationId);
   return (
     <div className="rounded-lg border border-neutral-100 bg-white">
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-h-12 w-full items-center justify-between px-4 text-label font-medium text-forest cursor-pointer">
@@ -58,6 +59,11 @@ export function SaveBar({ disabled, saving, label = "Save", hint }: { disabled?:
       <Button type="submit" size="lg" block disabled={disabled} loading={saving}>{label}</Button>
     </div>
   );
+}
+
+/** Enter in a text box must not save a half-filled form. */
+export function blockEnter(e: React.KeyboardEvent) {
+  if (e.key === "Enter" && e.target instanceof HTMLInputElement) e.preventDefault();
 }
 
 export function cleanData<T extends Record<string, unknown>>(d: T): T {

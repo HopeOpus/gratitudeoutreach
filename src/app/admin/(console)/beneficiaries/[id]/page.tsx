@@ -1,4 +1,6 @@
 "use client";
+import { isMedicalKind } from "@/lib/stations";
+import { spiritualLine } from "@/lib/spiritual";
 import { use, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Lock, ShieldAlert } from "lucide-react";
@@ -32,8 +34,9 @@ export default function BeneficiaryPage({ params }: { params: Promise<{ id: stri
       const visitIds = (visits ?? []).map((v) => v.id);
       const { data: records } = visitIds.length ? await sb.from("service_records").select("id, visit_id, station_id, summary, served_by_name, served_at, has_confidential, voided_at").in("visit_id", visitIds).order("served_at") : { data: [] };
       const { data: needs } = visitIds.length ? await sb.from("visit_needs").select("visit_id, station_id, state").in("visit_id", visitIds) : { data: [] };
+      const { data: spiritual } = visitIds.length ? await sb.from("confidential_records").select("service_record_id, visit_id, payload").eq("kind", "spiritual").in("visit_id", visitIds) : { data: [] };
       const { data: stations } = await sb.from("stations_public").select("id, name, kind").in("edition_id", (visits ?? []).map((v) => v.edition_id));
-      return { b, visits: visits ?? [], records: records ?? [], needs: needs ?? [], stations: stations ?? [] };
+      return { b, visits: visits ?? [], records: records ?? [], needs: needs ?? [], spiritual: spiritual ?? [], stations: stations ?? [] };
     },
     refetchInterval: 10_000,
   });
@@ -41,7 +44,7 @@ export default function BeneficiaryPage({ params }: { params: Promise<{ id: stri
   if (q.isLoading) return <LoadingBlock />;
   if (q.error) return <ErrorBlock error={q.error} />;
   if (!q.data) return <AlertBanner tone="info">Person not found (or merged into another record).</AlertBanner>;
-  const { b, visits, records, needs, stations } = q.data;
+  const { b, visits, records, needs, spiritual, stations } = q.data;
   const st = (sid: string) => stations.find((s) => s.id === sid);
 
   const loadConfidential = async (visitId: string) => {
@@ -61,7 +64,7 @@ export default function BeneficiaryPage({ params }: { params: Promise<{ id: stri
       {visits.map((v) => {
         const ed = editions.find((e) => e.id === v.edition_id);
         const recs = records.filter((r) => r.visit_id === v.id);
-        const hasMed = recs.some((r) => r.has_confidential && st(r.station_id)?.kind === "medical");
+        const hasMed = recs.some((r) => r.has_confidential && isMedicalKind(st(r.station_id)?.kind));
         const hasCouns = recs.some((r) => r.has_confidential && st(r.station_id)?.kind === "counselling");
         return (
           <Card key={v.id} className="flex flex-col gap-3 p-4">
@@ -92,6 +95,9 @@ export default function BeneficiaryPage({ params }: { params: Promise<{ id: stri
                 </li>
               ))}
             </ol>
+            {spiritual.filter((x) => recs.some((r) => r.id === x.service_record_id && !r.voided_at)).map((x) => (
+              <p key={x.service_record_id} className="flex items-start gap-1 text-body text-ink"><Lock className="mt-1 size-4 shrink-0 text-confidential" aria-hidden /><span><span className="font-medium">Counselling: </span>{spiritualLine(x.payload as Record<string, unknown>)}</span></p>
+            ))}
             {(hasMed || hasCouns) && atLeast(admin, "coordinator") && (
               <div className="rounded-md border border-confidential/20 bg-confidential-bg p-3">
                 <p className="flex items-center gap-1 text-label font-medium text-confidential"><Lock className="size-4" aria-hidden /> Confidential notes are hidden from admins.</p>

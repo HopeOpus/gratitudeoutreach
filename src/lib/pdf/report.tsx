@@ -55,8 +55,11 @@ export function ReportDocument({ edition, stats, org }: { edition: { name: strin
   );
   const kpis: [string, number][] = [
     ["People registered", k.registered], ["People served", k.served_unique], ["Services delivered", k.services],
-    ["Salvations", k.salvations], ["Rededications", k.rededications], ["Medical referrals", k.referrals],
+    ["New converts", k.salvations], ["Rededications", k.rededications], ["Medical referrals", k.referrals],
     ["Follow-ups created", k.followups], ["Volunteers", k.volunteers], ["Urgent counselling", k.urgent_counselling],
+    ["Counselled", k.counselled], ["Already born again", k.already_born_again], ["Received healing", k.healings],
+    ["Holy Ghost baptism (new)", k.hg_baptised_today], ["Holy Ghost baptism (already)", k.hg_baptised_before], ["Speak in tongues", k.tongues],
+    ["Laboratory", k.lab_patients], ["Optician", k.optician_patients], ["Minor surgery", k.minor_surgery],
   ];
   const services = stats.stations.filter((st) => st.kind !== "registration");
 

@@ -50,7 +50,7 @@ const { data: stations } = await admin.from("stations_public").select("id, kind"
 const pins = {}; let n = 0;
 for (const s of stations) {
   const pin = String(700000 + Math.floor(Math.random() * 99000) + n++ * 7).slice(0, 6);
-  const role = s.kind === "medical" || s.kind === "counselling" ? "818181" : undefined;
+  const role = ["medical", "counselling", "pharmacy", "medical_assistant", "optician", "laboratory"].includes(s.kind) ? "818181" : undefined;
   const { error } = await admin.rpc("set_station_pins", { p_station: s.id, p_join_pin: pin, p_role_pin: role });
   if (error) throw error;
   pins[s.kind] = { pin, role, id: s.id };
@@ -66,7 +66,7 @@ await admin.from("editions").update({ status: "live" }).eq("id", editionId);
 // Devices join (anonymous auth + PIN)
 const plan = [];
 const regDevices = Math.max(1, Math.round(DEVICES * 0.15));
-for (let i = 0; i < DEVICES; i++) plan.push(i < regDevices ? "registration" : pick(["food", "prayer", "clothing", "medical", "counselling", "food"]));
+for (let i = 0; i < DEVICES; i++) plan.push(i < regDevices ? "registration" : pick(["food", "prayer", "clothing", "medical", "food"]));
 const t0 = performance.now();
 const devices = [];
 await pool(plan, 25, async (kind) => {

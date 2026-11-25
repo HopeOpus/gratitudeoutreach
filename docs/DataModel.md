@@ -322,7 +322,8 @@ type MedicalPayload = {
 ```
 
 **Timeline summary rules** (computed on the client, stored in `summary`):
-- Prayer: `"Health, Family · Salvation"`; notes are not included.
+- Counselling (kind `prayer`): always `"Counselling completed"`. Outcomes are in `confidential_records.kind = 'spiritual'` (`spiritualPayloadSchema`).
+- Medical Assistant: `"Vital signs taken"`. Optician and Laboratory: `"Medical check"` (medical team only). Pharmacy: `"Pharmacy completed"`.
 - Counselling: always `"Counselling session"` (category is NOT shown in summary).
 - Medical: `"Medical check · referred"` / `"Medical check"`; no vitals or diagnosis.
 - Food: `"Family pack ×1"`. Clothing: `"3 items (2 child)"`.

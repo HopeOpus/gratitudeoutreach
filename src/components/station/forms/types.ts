@@ -1,10 +1,10 @@
-import type { LocalVisit, LocalStation } from "@/lib/offline/db";
+import type { ConfidentialKind, LocalVisit, LocalStation } from "@/lib/offline/db";
 import type { VolunteerSession } from "@/lib/offline/session";
 
 export type ServicePayload = {
   summary: string;
   data: Record<string, unknown>;
-  confidential?: { kind: "medical" | "counselling"; payload: Record<string, unknown> } | null;
+  confidential?: { kind: ConfidentialKind; payload: Record<string, unknown> } | null;
   flags?: { kind: string; scope: "all" | "medical" | "counselling" | "leads"; text: string }[];
 };
 
