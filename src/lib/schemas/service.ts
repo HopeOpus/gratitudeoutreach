@@ -96,8 +96,10 @@ export const rxLineSchema = z.object({
 
 const vital = (min: number, max: number) => z.number().min(min).max(max).optional();
 export const vitalsSchema = z.object({
-  bp_sys: vital(50, 260), bp_dia: vital(30, 180), pulse: vital(20, 250), temp_c: vital(30, 45),
-  weight_kg: vital(1, 300), rbs_mg_dl: vital(10, 900), height_cm: vital(30, 250),
+  bp_sys: vital(50, 260), bp_dia: vital(30, 180), pulse: vital(20, 250), temp_c: vital(0, 200),
+  weight_kg: vital(1, 300), rbs_mmol_l: vital(0.5, 50), height_cm: vital(30, 250),
+  /** Records saved before blood sugar moved to mmol/L. */
+  rbs_mg_dl: vital(10, 900),
 });
 const testName = z.string().min(1).max(60);
 

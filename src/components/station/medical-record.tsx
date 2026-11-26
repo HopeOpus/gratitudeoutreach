@@ -7,7 +7,7 @@ import { formatTime } from "@/lib/utils";
 import { LockedNote } from "./bits";
 
 const VITALS: [keyof Vitals, string, string][] = [
-  ["pulse", "Pulse", "bpm"], ["temp_c", "Temperature", "°C"], ["weight_kg", "Weight", "kg"], ["height_cm", "Height", "cm"], ["rbs_mg_dl", "Blood sugar", "mg/dL"],
+  ["pulse", "Pulse", "bpm"], ["temp_c", "Temperature", "°C"], ["weight_kg", "Weight", "kg"], ["height_cm", "Height", "cm"], ["rbs_mmol_l", "Blood sugar", "mmol/L"], ["rbs_mg_dl", "Blood sugar", "mg/dL"],
 ];
 
 function VitalsList({ v }: { v: Vitals }) {

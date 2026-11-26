@@ -72,6 +72,7 @@ function Dashboard({ editionId, closed, live, name }: { editionId: string; close
         <KpiTile label="Served (unique)" value={formatNumber(k.served_unique)} hint={k.registered ? `${Math.round((k.served_unique / k.registered) * 100)}% of registered` : undefined} />
         <KpiTile label="Services delivered" value={formatNumber(k.services)} />
         <KpiTile label="On site" value={formatNumber(k.on_site)} />
+        <KpiTile label="Volunteers" value={formatNumber(k.volunteers)} hint={`${formatNumber(s.stations.reduce((n, st) => n + st.active_volunteers, 0))} active now`} />
         <KpiTile label="Decisions" value={formatNumber(k.decisions)} hint={`${k.salvations} new convert · ${k.rededications} rededication`} />
         <KpiTile label="Medical referrals" value={formatNumber(k.referrals)} />
         <KpiTile label="Counselled" value={formatNumber(k.counselled)} hint={`${k.already_born_again} already born again`} />

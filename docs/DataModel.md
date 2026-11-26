@@ -313,7 +313,7 @@ type CustomData   = Record<string, unknown>;
 // confidential_records.payload
 type CounsellingPayload = { notes: string; preferred_time?: string };
 type MedicalPayload = {
-  vitals: { bp_sys?: number; bp_dia?: number; pulse?: number; temp_c?: number; weight_kg?: number; rbs_mg_dl?: number; height_cm?: number };
+  vitals: { bp_sys?: number; bp_dia?: number; pulse?: number; temp_c?: number; weight_kg?: number; rbs_mmol_l?: number; height_cm?: number; rbs_mg_dl?: number /* records before 2026-11-26 */ };
   complaint: string[]; complaint_text?: string; impression?: string;
   dispensed: { item_id: string; qty: number; dosage?: string }[];
   referral?: { facility: string; reason: string; urgency: 'routine'|'urgent' };

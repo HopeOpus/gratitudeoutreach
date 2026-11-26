@@ -49,12 +49,17 @@ test("full journey: vitals, doctor, lab, optician, Counselling, Pharmacy gate, f
   await expect(ma.getByText(/Check BP systolic/)).toBeVisible();
   await ma.getByLabel(/BP systolic/).fill("150");
   await ma.getByLabel(/BP diastolic/).fill("95");
+  // Temperature is never flagged; blood sugar is in mmol/L, so 11 is in range.
+  await ma.getByLabel(/Temperature/).fill("27");
+  await ma.getByLabel(/Blood sugar/).fill("11");
+  await expect(ma.getByText(/Temp 27|RBS 11/)).toHaveCount(0);
   await save(ma, "Save vital signs");
 
   // Doctor sees vitals, has no vitals inputs, requests a test, prescribes, refers
   const doc = await device("444444", "Dr Amina", "404040");
   await openByCode(doc, code);
   await expect(doc.getByText("150/95 mmHg").first()).toBeVisible();
+  await expect(doc.getByText("11 mmol/L").first()).toBeVisible();
   await doc.getByRole("button", { name: "See patient" }).click();
   await expect(doc.getByText("150/95 mmHg").first()).toBeVisible();
   await expect(doc.getByLabel(/BP systolic/)).toHaveCount(0);
