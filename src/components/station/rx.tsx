@@ -1,7 +1,8 @@
 "use client";
 import { useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Pill, Trash2 } from "lucide-react";
+import { uuidv7 } from "uuidv7";
+import { Pill, Plus, Trash2 } from "lucide-react";
 import { db, type LocalConfidential, type LocalInventory, type LocalRecord, type LocalStation } from "@/lib/offline/db";
 import type { RxLine } from "@/lib/quick-ticks";
 import { Chip, ChipGroup } from "@/components/ui/chip";
@@ -26,6 +27,13 @@ export function useDrugs(stations: LocalStation[]): LocalInventory[] | undefined
 /** Medical: pick medicines from the inventory, with quantity and dosage. */
 export function PrescriptionEditor({ drugs, lines, onChange }: { drugs: LocalInventory[]; lines: RxLine[]; onChange: (l: RxLine[]) => void }) {
   const [q, setQ] = useState("");
+  const [other, setOther] = useState("");
+  const addOther = () => {
+    const name = other.trim();
+    if (!name || lines.length >= 20) return;
+    onChange([...lines, { item_id: uuidv7(), name, qty: 1, dosage: undefined, custom: true }]);
+    setOther("");
+  };
   const chosen = new Set(lines.map((l) => l.item_id));
   const shown = drugs.filter((d) => !chosen.has(d.id) && (!q.trim() || d.name.toLowerCase().includes(q.trim().toLowerCase()))).slice(0, 12);
   const update = (id: string, patch: Partial<RxLine>) => onChange(lines.map((l) => (l.item_id === id ? { ...l, ...patch } : l)));
@@ -36,7 +44,7 @@ export function PrescriptionEditor({ drugs, lines, onChange }: { drugs: LocalInv
       {lines.map((l) => (
         <div key={l.item_id} className="flex flex-col gap-2 rounded-md border border-neutral-100 p-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-body-lg font-medium text-forest">{l.name}</span>
+            <span className="text-body-lg font-medium text-forest">{l.name}{l.custom && <span className="ml-2 text-caption font-normal text-neutral-500">Not on the list</span>}</span>
             <Button type="button" variant="ghost" size="icon" aria-label={`Remove ${l.name}`} onClick={() => onChange(lines.filter((x) => x.item_id !== l.item_id))}><Trash2 className="size-5" /></Button>
           </div>
           <div className="flex items-center gap-3">
@@ -51,7 +59,7 @@ export function PrescriptionEditor({ drugs, lines, onChange }: { drugs: LocalInv
         </div>
       ))}
       {drugs.length === 0 ? (
-        <p className="text-caption text-neutral-500">No medicines in the inventory yet. Ask the coordinator to add them under General Doctor or Pharmacy.</p>
+        <p className="text-caption text-neutral-500">No medicines in the inventory yet. Type the medicine below.</p>
       ) : (
         <>
           <Input aria-label="Find a medicine" placeholder="Find a medicine…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -64,6 +72,15 @@ export function PrescriptionEditor({ drugs, lines, onChange }: { drugs: LocalInv
           </ChipGroup>
         </>
       )}
+      <div className="flex items-end gap-2">
+        <div className="flex-1">
+          <label htmlFor="rx-other" className="mb-1 block text-label text-neutral-700">Medicine not on the list</label>
+          <Input id="rx-other" placeholder="Type the medicine name…" value={other} maxLength={120}
+            onChange={(e) => setOther(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addOther(); } }} />
+        </div>
+        <Button type="button" variant="secondary" disabled={!other.trim() || lines.length >= 20} onClick={addOther}><Plus className="size-4" aria-hidden /> Add</Button>
+      </div>
       {lines.length > 0 && <p className="text-caption text-neutral-700">Saving sends them to Pharmacy with this prescription.</p>}
     </div>
   );
@@ -97,7 +114,7 @@ export function PrescriptionCard({ rx, stock, given, onToggle }: { rx: PendingRx
         return (
           <Checkbox key={l.item_id} id={`rx-${l.item_id}`} checked={given.includes(l.item_id)} onChange={(on) => onToggle(l.item_id, on)}
             label={`${l.name} × ${l.qty}`}
-            description={[l.dosage, out ? `Only ${Math.max(0, left ?? 0)} left in stock` : null].filter(Boolean).join(" · ") || undefined} />
+            description={[l.dosage, l.custom ? "Not on the stock list" : null, out ? `Only ${Math.max(0, left ?? 0)} left in stock` : null].filter(Boolean).join(" · ") || undefined} />
         );
       })}
     </div>

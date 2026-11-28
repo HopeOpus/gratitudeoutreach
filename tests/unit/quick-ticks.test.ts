@@ -24,6 +24,14 @@ describe("quick ticks", () => {
     expect(buildPharmacyPayload({ dispensed: [], prescriptionId: RICE, counsellingRecordId: null }).data.outcomes).toEqual(["Medicine not available"]);
   });
 
+  it("pharmacy: a medicine typed in by the doctor is given but never touches stock", () => {
+    const p = buildPharmacyPayload({ dispensed: [{ item_id: RICE, qty: 1 }, { item_id: BEANS, qty: 2, custom: true }], prescriptionId: RICE, counsellingRecordId: null });
+    expect(p.data).toMatchObject({ items: [{ item_id: RICE, qty: 1 }], outcomes: ["Medicine given"] });
+    const only = buildPharmacyPayload({ dispensed: [{ item_id: BEANS, qty: 2, custom: true }], prescriptionId: RICE, counsellingRecordId: null });
+    expect(only.data).toMatchObject({ items: [], outcomes: ["Medicine given"] });
+    expect(pharmacyDataSchema.safeParse(only.data).success).toBe(true);
+  });
+
   it("counselling: generic summary, follow-up flag, valid data", () => {
     const p = buildQuickPayload("counselling", ["counselled", "followup"]);
     expect(p.summary).toBe("Counselling session");

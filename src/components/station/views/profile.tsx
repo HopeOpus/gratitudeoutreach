@@ -113,7 +113,7 @@ export function ProfileView({ visitId, session }: { visitId: string; session: Vo
     try {
       const p = isPharm
         ? buildPharmacyPayload({
-            dispensed: (pendingRx?.lines ?? []).filter((l) => currentGiven.includes(l.item_id)).map((l) => ({ item_id: l.item_id, qty: l.qty })),
+            dispensed: (pendingRx?.lines ?? []).filter((l) => currentGiven.includes(l.item_id)).map((l) => ({ item_id: l.item_id, qty: l.qty, custom: l.custom })),
             prescriptionId: pendingRx?.recordId ?? null, counsellingRecordId: counselled?.id ?? null, override: counselled ? undefined : gateOverride ?? undefined,
           })
         : buildQuickPayload(myStation.kind as StationKind, currentTicks, inventory ?? [], pickedItems);

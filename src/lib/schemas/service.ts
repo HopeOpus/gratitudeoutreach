@@ -92,6 +92,8 @@ export type MedicalData = z.infer<typeof medicalDataSchema>;
 /** A medicine Medical prescribes; Pharmacy dispenses from it. Confidential (medical payload only). */
 export const rxLineSchema = z.object({
   item_id: id, name: z.string().min(1).max(120), qty: z.number().int().min(1).max(100), dosage: z.string().max(120).optional(),
+  /** Typed in by the doctor: not in the inventory, so Pharmacy gives it without reducing stock. */
+  custom: z.boolean().optional(),
 });
 
 const vital = (min: number, max: number) => z.number().min(min).max(max).optional();

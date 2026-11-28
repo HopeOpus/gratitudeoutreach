@@ -52,11 +52,12 @@ function truncate(s: string, n = 140) {
 }
 
 /** One medicine on a prescription. `name` is kept so Pharmacy can read it even if stock is renamed. */
-export type RxLine = { item_id: string; name: string; qty: number; dosage?: string };
+export type RxLine = { item_id: string; name: string; qty: number; dosage?: string; custom?: boolean };
 
 export type PharmacyInput = {
   /** What was handed over, and the medical record it fills (null = no prescription). */
-  dispensed: { item_id: string; qty: number }[];
+  /** `custom` lines were typed in by the doctor (not in the inventory), so they never touch stock. */
+  dispensed: { item_id: string; qty: number; custom?: boolean }[];
   prescriptionId: string | null;
   counsellingRecordId: string | null;
   /** Station Lead approval when Counselling is not done. */
@@ -65,8 +66,9 @@ export type PharmacyInput = {
 
 /** Pharmacy closes the step with medicine given, not available, or none needed. The summary never says which. */
 export function buildPharmacyPayload(p: PharmacyInput): QuickPayload {
-  const given = p.dispensed.filter((l) => l.qty > 0);
-  const outcome = given.length ? "Medicine given" : p.prescriptionId ? "Medicine not available" : "No medicine needed";
+  const handed = p.dispensed.filter((l) => l.qty > 0);
+  const given = handed.filter((l) => !l.custom).map((l) => ({ item_id: l.item_id, qty: l.qty }));
+  const outcome = handed.length ? "Medicine given" : p.prescriptionId ? "Medicine not available" : "No medicine needed";
   return {
     summary: "Pharmacy completed",
     data: {
