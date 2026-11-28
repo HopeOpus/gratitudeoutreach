@@ -216,8 +216,8 @@ export async function pullDelta() {
 // per-subscriber change checks and the delta stampede after every registration
 // overloaded the database. Each phone polls the delta instead, at a jittered
 // interval so phones don't all hit the server at the same moment.
-const DELTA_MIN_MS = 20_000;
-const DELTA_JITTER_MS = 10_000;
+const DELTA_MIN_MS = 5_000;
+const DELTA_JITTER_MS = 3_000;
 
 // ---------------------------------------------------------------------------
 // HEARTBEAT (revocation, moves, closed edition) — every 30 s
