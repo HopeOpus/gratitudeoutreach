@@ -32,7 +32,7 @@ function Dashboard({ editionId, closed, live, name }: { editionId: string; close
       if (error) throw error;
       return data as unknown as DashboardStats;
     },
-    refetchInterval: 15_000,
+    refetchInterval: 5000,
   });
 
   // Realtime nudges (coordinators can read service records/visits); polling covers viewers.

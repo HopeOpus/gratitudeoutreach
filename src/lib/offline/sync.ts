@@ -1,4 +1,5 @@
 "use client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { volunteerClient } from "@/lib/supabase/volunteer";
 import {
   db, getMeta, setMeta, purgeLocalData,
@@ -212,12 +213,55 @@ export async function pullDelta() {
   }
 }
 
-// No Realtime on volunteer phones (DECISIONS.md 2026-11-28): with ~90 phones the
-// per-subscriber change checks and the delta stampede after every registration
-// overloaded the database. Each phone polls the delta instead, at a jittered
-// interval so phones don't all hit the server at the same moment.
-const DELTA_MIN_MS = 5_000;
-const DELTA_JITTER_MS = 3_000;
+let channel: RealtimeChannel | null = null;
+let deltaTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleDelta() {
+  if (deltaTimer) clearTimeout(deltaTimer);
+  deltaTimer = setTimeout(() => void pullDelta(), 250);
+}
+
+async function subscribeRealtime(editionId: string) {
+  const sb = await volunteerClient();
+  if (channel) void sb.removeChannel(channel);
+  const filter = `edition_id=eq.${editionId}`;
+  const d = db();
+  channel = sb
+    .channel(`edition:${editionId}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "service_records", filter }, (p) => {
+      const r = p.new as Record<string, unknown>;
+      if (!r?.id) return;
+      void d.records.put({
+        id: String(r.id), visit_id: String(r.visit_id), station_id: String(r.station_id), served_by_name: String(r.served_by_name),
+        summary: String(r.summary), data: (r.data ?? {}) as Record<string, unknown>, has_confidential: Boolean(r.has_confidential),
+        served_at: String(r.served_at), voided_at: (r.voided_at as string | null) ?? null, updated_at: String(r.updated_at),
+      });
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "visit_needs", filter }, (p) => {
+      const n = p.new as LocalNeed;
+      if (n?.visit_id) void d.needs.put(n);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "flags", filter }, (p) => {
+      const f = p.new as LocalFlag;
+      if (f?.id) void d.flags.put(f);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "inventory_items", filter }, (p) => {
+      const i = p.new as Record<string, unknown>;
+      if (!i?.id) return;
+      void d.inventory.put({
+        id: String(i.id), station_id: String(i.station_id), name: String(i.name), unit: String(i.unit ?? "pcs"),
+        sizes: (i.sizes as string[] | null) ?? null, opening_qty: Number(i.opening_qty), remaining: Number(i.remaining),
+        low_threshold: Number(i.low_threshold ?? 0), updated_at: String(i.updated_at),
+      });
+    })
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "confidential_records", filter }, (p) => {
+      const c = p.new as LocalConfidential;
+      if (c?.service_record_id) void d.confidential.put(c);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "visits", filter }, () => scheduleDelta())
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") scheduleDelta(); // catch up anything missed while disconnected
+    });
+}
 
 // ---------------------------------------------------------------------------
 // HEARTBEAT (revocation, moves, closed edition) — every 30 s
@@ -267,9 +311,8 @@ export async function heartbeat(): Promise<HeartbeatOutcome> {
 let started = false;
 let timers: ReturnType<typeof setInterval>[] = [];
 let onEnd: ((why: "revoked" | "expired") => void) | null = null;
-let stopDelta: (() => void) | null = null;
 
-export function startSyncEngine(_editionId: string, handleEnd: (why: "revoked" | "expired") => void) {
+export function startSyncEngine(editionId: string, handleEnd: (why: "revoked" | "expired") => void) {
   onEnd = handleEnd;
   if (started) return;
   started = true;
@@ -283,15 +326,9 @@ export function startSyncEngine(_editionId: string, handleEnd: (why: "revoked" |
   const beat = async () => {
     const r = await heartbeat();
     if ((r === "revoked" || r === "expired") && onEnd) { onEnd(r); return; }
-  };
-  let deltaTimer: ReturnType<typeof setTimeout> | null = null;
-  const pollDelta = () => {
-    deltaTimer = setTimeout(async () => {
-      if (!started) return;
-      if (navigator.onLine && document.visibilityState === "visible") await pullDelta().catch(() => undefined);
-      pollDelta();
-    }, DELTA_MIN_MS + Math.random() * DELTA_JITTER_MS);
-    stopDelta = () => { if (deltaTimer) clearTimeout(deltaTimer); deltaTimer = null; };
+    // Safety net: Realtime can drop events under load; a cheap delta every 30 s
+    // guarantees every device converges even if a broadcast was missed.
+    if (r === "ok") void pullDelta();
   };
   window.addEventListener("online", kick);
   window.addEventListener("offline", () => setSyncState({ online: false }));
@@ -302,7 +339,7 @@ export function startSyncEngine(_editionId: string, handleEnd: (why: "revoked" |
     setInterval(() => { if (navigator.onLine) void pushOutbox(); }, 5000),
     setInterval(() => void beat(), 30_000),
   ];
-  pollDelta();
+  void subscribeRealtime(editionId);
   kick();
   void beat();
 }
@@ -310,9 +347,10 @@ export function startSyncEngine(_editionId: string, handleEnd: (why: "revoked" |
 export function stopSyncEngine() {
   timers.forEach(clearInterval);
   timers = [];
-  stopDelta?.();
-  stopDelta = null;
   started = false;
+  const ch = channel;
+  channel = null;
+  if (ch) void volunteerClient().then((sb) => sb.removeChannel(ch));
 }
 
 /** Sign out + wipe device data (revoke, expiry, "Leave station"). */

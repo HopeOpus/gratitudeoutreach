@@ -45,7 +45,7 @@ export function LiveActivity({ editionId, stations }: { editionId: string; stati
       ];
       return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 30);
     },
-    refetchInterval: 15_000,
+    refetchInterval: 10_000,
   });
 
   return (
