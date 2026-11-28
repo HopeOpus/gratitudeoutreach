@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/misc";
 import { Segmented } from "@/components/ui/segmented";
 import { toast } from "@/components/ui/toast";
 import { relativeMinutes, formatTime, errorMessage, cn } from "@/lib/utils";
+import { DESIGNATIONS } from "@/lib/schemas/service";
 
 export default function VolunteersPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -68,7 +69,7 @@ export default function VolunteersPage({ params }: { params: Promise<{ id: strin
           <Table head={["Volunteer", "Phone", "Station", "Registered", "Devices signed in"]} empty="No volunteers have registered yet.">
             {(accounts.data ?? []).map((a) => (
               <tr key={a.id}>
-                <Td><span className="font-medium text-forest">{a.designation ? `${a.designation} ` : ""}{a.display_name}</span></Td>
+                <Td><VolunteerName name={a.display_name} designation={a.designation} /></Td>
                 <Td className="tabular">{a.phone}</Td>
                 <Td>{stationName(a.station_id)}</Td>
                 <Td>{formatTime(a.created_at)}</Td>
@@ -83,7 +84,7 @@ export default function VolunteersPage({ params }: { params: Promise<{ id: strin
             const active = !s.revoked_at && new Date(s.expires_at).getTime() > now;
             return (
               <tr key={s.id}>
-                <Td><span className="font-medium text-forest">{s.designation ? `${s.designation} ` : ""}{s.display_name}</span>{s.role === "station_lead" && <Badge className="ml-2 bg-leaf-50 text-leaf-700">Lead</Badge>}<br /><span className="text-caption text-neutral-500">{s.phone ?? "No phone"} · {s.device_label ?? "Device"}</span></Td>
+                <Td><VolunteerName name={s.display_name} designation={s.designation} />{s.role === "station_lead" && <Badge className="ml-2 bg-leaf-50 text-leaf-700">Lead</Badge>}<br /><span className="text-caption text-neutral-500">{s.phone ?? "No phone"} · {s.device_label ?? "Device"}</span></Td>
                 <Td>{stationName(s.station_id)}</Td>
                 <Td>{formatTime(s.created_at)}</Td>
                 <Td>{active ? relativeMinutes(s.last_seen_at) : <Badge className="bg-neutral-50 text-neutral-700">{s.revoked_at ? "Ended" : "Expired"}</Badge>}</Td>
@@ -107,5 +108,16 @@ export default function VolunteersPage({ params }: { params: Promise<{ id: strin
         </Select>
       </BottomSheet>
     </div>
+  );
+}
+
+/** Clinical designations read as a title ("Dr Ngozi"); a typed department follows the name ("Musa · Security"). */
+function VolunteerName({ name, designation }: { name: string; designation: string | null }) {
+  const title = !!designation && (DESIGNATIONS as readonly string[]).includes(designation);
+  return (
+    <>
+      <span className="font-medium text-forest">{title ? `${designation} ` : ""}{name}</span>
+      {designation && !title && <span className="text-neutral-700"> · {designation}</span>}
+    </>
   );
 }

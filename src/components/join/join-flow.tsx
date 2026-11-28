@@ -46,13 +46,16 @@ export function JoinFlow({ token: initialToken, ended }: { token?: string; ended
   const [phone, setPhone] = useState("");
   const [rolePin, setRolePin] = useState("");
   const [designation, setDesignation] = useState<string>("Nurse");
+  /** Custom stations (e.g. "Others"): the volunteer types their department, saved as the designation. */
+  const [department, setDepartment] = useState("");
   const [ack, setAck] = useState(false);
   const [leadMode, setLeadMode] = useState(false);
   const [errCode, setErrCode] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(ended ? (ended === "revoked" ? "Your session was ended by the coordinator. Join again if needed." : "Your session expired. Join again to continue.") : null);
   const [busy, setBusy] = useState(false);
   const [scan, setScan] = useState(false);
-  const [fieldErr, setFieldErr] = useState<{ name?: string; phone?: string }>({});
+  const [fieldErr, setFieldErr] = useState<{ name?: string; phone?: string; department?: string }>({});
+  const asksDepartment = mode === "register" && station?.kind === "custom";
 
   const cred = token ? { token } : { pin };
 
@@ -109,6 +112,7 @@ export function JoinFlow({ token: initialToken, ended }: { token?: string; ended
 
   const submitWho = async () => {
     if (!validate(whoSchema)) return;
+    if (asksDepartment && department.trim().length < 2) { setFieldErr({ department: "Type your department, e.g. Protocol" }); return; }
     if (needsRole) { setStep("role"); return; }
     await finish();
   };
@@ -130,7 +134,7 @@ export function JoinFlow({ token: initialToken, ended }: { token?: string; ended
           if (r.error === "account_not_found" || r.error === "locked") { setRolePin(""); setStep("signin"); }
         }
       } else {
-        const r = await completeJoin(cred, { name, phone, rolePin: rolePin || undefined, designation: needsRole ? designation : undefined, ack });
+        const r = await completeJoin(cred, { name, phone, rolePin: rolePin || undefined, designation: needsRole ? designation : asksDepartment ? department.trim() : undefined, ack });
         if (r.ok) { window.location.replace("/s"); return; }
         showError(r.error);
         if (r.error === "invalid_pin" || r.error === "invalid_token") setStep("pin");
@@ -213,6 +217,11 @@ export function JoinFlow({ token: initialToken, ended }: { token?: string; ended
             <Field label="Phone number" htmlFor="j-phone" required error={fieldErr.phone} hint="This is your password for signing in on any phone">
               <Input id="j-phone" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0803 123 4567" />
             </Field>
+            {asksDepartment && (
+              <Field label="Department" htmlFor="j-dept" required error={fieldErr.department} hint="e.g. Admin, Protocol, Security, Media, Ushering">
+                <Input id="j-dept" autoCapitalize="words" maxLength={40} value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="Your department" />
+              </Field>
+            )}
             {!needsRole && (
               leadMode ? (
                 <Field label="Lead PIN (Station Leads only)" htmlFor="j-lead">
